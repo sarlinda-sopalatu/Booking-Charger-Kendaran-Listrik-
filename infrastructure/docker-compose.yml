@@ -1,0 +1,442 @@
+version: "3.9"
+
+name: ev-charging-booking
+
+networks:
+  ev-network:
+    driver: bridge
+
+volumes:
+  pg_users_data:
+  pg_stations_data:
+  pg_bookings_data:
+  pg_payments_data:
+  redis_data:
+  mongo_data:
+  rabbitmq_data:
+
+services:
+
+  # ===========================================================================
+  # DATABASES
+  # ===========================================================================
+
+  postgres-users:
+    image: postgres:15-alpine
+    container_name: ev-postgres-users
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ev_users
+      POSTGRES_USER: ev_user
+      POSTGRES_PASSWORD: ev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_users_data:/var/lib/postgresql/data
+    networks:
+      - ev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ev_user -d ev_users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-stations:
+    image: postgres:15-alpine
+    container_name: ev-postgres-stations
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ev_stations
+      POSTGRES_USER: ev_user
+      POSTGRES_PASSWORD: ev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_stations_data:/var/lib/postgresql/data
+    networks:
+      - ev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ev_user -d ev_stations"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-bookings:
+    image: postgres:15-alpine
+    container_name: ev-postgres-bookings
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ev_bookings
+      POSTGRES_USER: ev_user
+      POSTGRES_PASSWORD: ev_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg_bookings_data:/var/lib/postgresql/data
+    networks:
+      - ev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ev_user -d ev_bookings"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-payments:
+    image: postgres:15-alpine
+    container_name: ev-postgres-payments
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ev_payments
+      POSTGRES_USER: ev_user
+      POSTGRES_PASSWORD: ev_password
+    ports:
+      - "5435:5432"
+    volumes:
+      - pg_payments_data:/var/lib/postgresql/data
+    networks:
+      - ev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ev_user -d ev_payments"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ev-redis
+    restart: unless-stopped
+    command: redis-server --requirepass redis_password --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: ev-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ev_user
+      MONGO_INITDB_ROOT_PASSWORD: ev_password
+      MONGO_INITDB_DATABASE: ev_monitoring
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - ev-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ev-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_VHOST: ev_vhost
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ev-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ===========================================================================
+  # MICROSERVICES
+  # ===========================================================================
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    container_name: ev-api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: development
+      JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
+      USER_SERVICE_URL: http://user-service:3001
+      STATION_SERVICE_URL: http://station-service:3002
+      BOOKING_SERVICE_URL: http://booking-service:3003
+      QUEUE_SERVICE_URL: http://queue-service:3004
+      PAYMENT_SERVICE_URL: http://payment-service:3005
+      MONITORING_SERVICE_URL: http://monitoring-service:3006
+      REDIS_URL: redis://:redis_password@redis:6379
+    volumes:
+      - ./keys:/app/keys:ro
+    networks:
+      - ev-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  user-service:
+    build:
+      context: ../services/user-service
+      dockerfile: Dockerfile
+    container_name: ev-user-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      NODE_ENV: development
+      DATABASE_URL: postgres://ev_user:ev_password@postgres-users:5432/ev_users
+      REDIS_URL: redis://:redis_password@redis:6379
+      JWT_PRIVATE_KEY_PATH: /app/keys/private.pem
+      JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
+      JWT_ISSUER: ev-charging-user-service
+      JWT_AUDIENCE: ev-charging-system
+      ACCESS_TOKEN_EXPIRE: 900
+      REFRESH_TOKEN_EXPIRE: 604800
+    volumes:
+      - ./keys:/app/keys:ro
+    networks:
+      - ev-network
+    depends_on:
+      postgres-users:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  station-service:
+    build:
+      context: ../services/station-service
+      dockerfile: Dockerfile
+    container_name: ev-station-service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      DATABASE_URL: postgres://ev_user:ev_password@postgres-stations:5432/ev_stations
+    networks:
+      - ev-network
+    depends_on:
+      postgres-stations:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  booking-service:
+    build:
+      context: ../services/booking-service
+      dockerfile: Dockerfile
+    container_name: ev-booking-service
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      NODE_ENV: development
+      DATABASE_URL: postgres://ev_user:ev_password@postgres-bookings:5432/ev_bookings
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
+      STATION_SERVICE_URL: http://station-service:3002
+      USER_SERVICE_URL: http://user-service:3001
+      BOOKING_EXPIRY_MINUTES: 30
+    networks:
+      - ev-network
+    depends_on:
+      postgres-bookings:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  queue-service:
+    build:
+      context: ../services/queue-service
+      dockerfile: Dockerfile
+    container_name: ev-queue-service
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      NODE_ENV: development
+      REDIS_URL: redis://:redis_password@redis:6379
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
+      STATION_SERVICE_URL: http://station-service:3002
+    networks:
+      - ev-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3004/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  payment-service:
+    build:
+      context: ../services/payment-service
+      dockerfile: Dockerfile
+    container_name: ev-payment-service
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      NODE_ENV: development
+      DATABASE_URL: postgres://ev_user:ev_password@postgres-payments:5432/ev_payments
+      REDIS_URL: redis://:redis_password@redis:6379
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
+      BOOKING_SERVICE_URL: http://booking-service:3003
+      MIDTRANS_SERVER_KEY: SB-Mid-server-XXXXX
+      MIDTRANS_CLIENT_KEY: SB-Mid-client-XXXXX
+      MIDTRANS_IS_PRODUCTION: false
+      WEBHOOK_SECRET: webhook_secret_key_here
+    networks:
+      - ev-network
+    depends_on:
+      postgres-payments:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3005/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  monitoring-service:
+    build:
+      context: ../services/monitoring-service
+      dockerfile: Dockerfile
+    container_name: ev-monitoring-service
+    restart: unless-stopped
+    ports:
+      - "3006:3006"
+    environment:
+      PORT: 3006
+      NODE_ENV: development
+      MONGODB_URL: mongodb://ev_user:ev_password@mongodb:27017/ev_monitoring?authSource=admin
+      REDIS_URL: redis://:redis_password@redis:6379
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
+      FRONTEND_URL: http://localhost:5173
+      ALERT_TEMP_THRESHOLD: 60
+      ALERT_VOLTAGE_MIN: 200
+    networks:
+      - ev-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3006/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  notification-service:
+    build:
+      context: ../services/notification-service
+      dockerfile: Dockerfile
+    container_name: ev-notification-service
+    restart: unless-stopped
+    ports:
+      - "3007:3007"
+    environment:
+      PORT: 3007
+      NODE_ENV: development
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
+      SENDGRID_API_KEY: SG.XXXXXXX
+      SENDGRID_FROM_EMAIL: noreply@ev-charging.id
+      SENDGRID_FROM_NAME: EV Charging System
+      TWILIO_ACCOUNT_SID: ACXXXXXXX
+      TWILIO_AUTH_TOKEN: XXXXXXX
+      TWILIO_FROM_NUMBER: "+628000000000"
+      FRONTEND_URL: http://localhost:5173
+    networks:
+      - ev-network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3007/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================================================
+  # FRONTEND
+  # ===========================================================================
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: ev-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    environment:
+      VITE_API_BASE_URL: http://localhost:3000/api
+      VITE_MONITORING_WS_URL: http://localhost:3006
+    networks:
+      - ev-network
+    depends_on:
+      - api-gateway
+
+  # ===========================================================================
+  # TOOLING
+  # ===========================================================================
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ev-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ev.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    networks:
+      - ev-network
+    profiles: [tools]

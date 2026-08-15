@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arsitektur Sistem — EV Charging Booking</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --green:   #10b981;
+    --green-l: #d1fae5;
+    --blue:    #3b82f6;
+    --blue-l:  #dbeafe;
+    --purple:  #8b5cf6;
+    --purple-l:#ede9fe;
+    --orange:  #f59e0b;
+    --orange-l:#fef3c7;
+    --red:     #ef4444;
+    --red-l:   #fee2e2;
+    --slate:   #64748b;
+    --slate-l: #f1f5f9;
+    --dark:    #0f172a;
+    --gray:    #374151;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f8fafc;
+    color: var(--dark);
+    line-height: 1.6;
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f4c75 100%);
+    color: white;
+    padding: 3rem 2rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .header .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(16,185,129,.2); border: 1px solid rgba(16,185,129,.4);
+    color: #6ee7b7; padding: 6px 16px; border-radius: 100px;
+    font-size: 13px; font-weight: 600; margin-bottom: 16px;
+  }
+  .header h1 { font-size: clamp(1.8rem,4vw,2.8rem); font-weight: 800; margin-bottom: 10px; }
+  .header p  { font-size: 1rem; color: #94a3b8; max-width: 640px; margin: 0 auto 24px; }
+  .header-meta {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;
+    font-size: 13px; color: #cbd5e1;
+  }
+  .header-meta span { display: flex; align-items: center; gap: 6px; }
+
+  /* ─── NAVIGATION ─── */
+  .toc {
+    background: white; border-bottom: 1px solid #e2e8f0;
+    position: sticky; top: 0; z-index: 100;
+    padding: 0 2rem;
+    display: flex; gap: 0; overflow-x: auto;
+  }
+  .toc a {
+    display: block; padding: 14px 16px;
+    font-size: 13px; font-weight: 600; color: var(--slate);
+    text-decoration: none; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all .2s;
+  }
+  .toc a:hover { color: var(--green); border-bottom-color: var(--green); }
+
+  /* ─── MAIN CONTENT ─── */
+  main { max-width: 1300px; margin: 0 auto; padding: 2rem; }
+
+  /* ─── SECTION ─── */
+  .section {
+    background: white; border-radius: 16px;
+    border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    margin-bottom: 2rem; overflow: hidden;
+  }
+  .section-header {
+    padding: 20px 28px; border-bottom: 1px solid #f1f5f9;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .section-icon {
+    width: 42px; height: 42px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .section-header h2 { font-size: 1.2rem; font-weight: 700; color: var(--dark); }
+  .section-header p  { font-size: 13px; color: var(--slate); margin-top: 2px; }
+  .section-body { padding: 28px; }
+
+  /* ─── MERMAID ─── */
+  .mermaid-wrap {
+    background: #fafbff; border: 1px solid #e8edf5;
+    border-radius: 12px; padding: 24px;
+    overflow-x: auto; margin: 16px 0;
+  }
+  .mermaid { min-width: 600px; }
+
+  /* ─── ARCHITECTURE VISUAL ─── */
+  .arch-visual {
+    display: flex; flex-direction: column; gap: 0;
+    border: 2px solid #e2e8f0; border-radius: 16px; overflow: hidden;
+  }
+  .arch-layer {
+    padding: 20px 24px;
+    border-bottom: 2px dashed #e2e8f0;
+  }
+  .arch-layer:last-child { border-bottom: none; }
+  .arch-layer-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 14px; opacity: .7;
+  }
+  .arch-boxes {
+    display: flex; flex-wrap: wrap; gap: 10px;
+  }
+  .arch-box {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 14px 18px; border-radius: 12px;
+    border: 1.5px solid; min-width: 110px; text-align: center;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .arch-box:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+  .arch-box .icon { font-size: 22px; }
+  .arch-box .name { font-size: 12px; font-weight: 700; }
+  .arch-box .tech { font-size: 10px; opacity: .75; }
+  .arch-box .port { font-size: 10px; font-weight: 600; margin-top: 2px; }
+
+  /* Layer colors */
+  .layer-client      { background: #f0fdf4; border-color: #bbf7d0; }
+  .layer-client .arch-layer-title { color: var(--green); }
+  .layer-gateway     { background: #fff7ed; border-color: #fed7aa; }
+  .layer-gateway .arch-layer-title { color: var(--orange); }
+  .layer-services    { background: #eff6ff; border-color: #bfdbfe; }
+  .layer-services .arch-layer-title { color: var(--blue); }
+  .layer-messaging   { background: #fdf4ff; border-color: #e9d5ff; }
+  .layer-messaging .arch-layer-title { color: var(--purple); }
+  .layer-data        { background: #f8fafc; border-color: #e2e8f0; }
+  .layer-data .arch-layer-title { color: var(--slate); }
+
+  /* Box colors */
+  .box-green  { background:#d1fae5; border-color:#34d399; color:#065f46; }
+  .box-blue   { background:#dbeafe; border-color:#60a5fa; color:#1e40af; }
+  .box-purple { background:#ede9fe; border-color:#a78bfa; color:#4c1d95; }
+  .box-orange { background:#fef3c7; border-color:#fbbf24; color:#92400e; }
+  .box-red    { background:#fee2e2; border-color:#f87171; color:#7f1d1d; }
+  .box-slate  { background:#f1f5f9; border-color:#94a3b8; color:#1e293b; }
+  .box-teal   { background:#ccfbf1; border-color:#2dd4bf; color:#134e4a; }
+  .box-pink   { background:#fce7f3; border-color:#f472b6; color:#831843; }
+  .box-yellow { background:#fef9c3; border-color:#fde047; color:#713f12; }
+
+  /* ─── ARROWS ─── */
+  .arrow-row {
+    display: flex; align-items: center; justify-content: center;
+    padding: 8px 0; gap: 8px; color: var(--slate); font-size: 12px;
+  }
+  .arrow-row svg { color: var(--slate); }
+
+  /* ─── GRID TABLES ─── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 900px) { .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+
+  /* ─── SERVICE CARDS ─── */
+  .svc-card {
+    border-radius: 14px; padding: 20px; border: 1.5px solid;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .svc-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+  .svc-card .svc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .svc-card .svc-icon { font-size: 24px; }
+  .svc-card .svc-name { font-size: 14px; font-weight: 700; }
+  .svc-card .svc-port { font-size: 11px; font-weight: 600; opacity: .7; margin-top: 2px; }
+  .svc-card .svc-desc { font-size: 12px; color: var(--gray); margin-bottom: 12px; line-height: 1.6; }
+  .svc-card .svc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .svc-card .tag {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 100px; background: rgba(0,0,0,.07);
+  }
+  .svc-card .svc-db {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,.12);
+    font-size: 11px; font-weight: 600; opacity: .8;
+  }
+
+  /* ─── TABLE ─── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    background: #f8fafc; text-align: left; padding: 10px 14px;
+    font-weight: 700; color: var(--slate);
+    border-bottom: 2px solid #e2e8f0;
+    text-transform: uppercase; font-size: 11px; letter-spacing: .5px;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+
+  /* ─── EVENT TABLE ─── */
+  .event-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .event-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ─── FLOW DIAGRAM ─── */
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .flow-step {
+    background: white; border: 1.5px solid #e2e8f0; border-radius: 10px;
+    padding: 10px 14px; font-size: 12px; font-weight: 600; text-align: center;
+    min-width: 90px;
+  }
+  .flow-arrow { font-size: 18px; color: var(--slate); }
+
+  /* ─── TECH STACK ─── */
+  .tech-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tech-pill {
+    display: flex; align-items: center; gap: 7px;
+    background: white; border: 1.5px solid #e2e8f0; border-radius: 100px;
+    padding: 6px 14px; font-size: 12px; font-weight: 600;
+    transition: border-color .2s;
+  }
+  .tech-pill:hover { border-color: var(--green); }
+  .tech-pill .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ─── DECISION CARDS ─── */
+  .adr-card {
+    border-radius: 12px; padding: 18px 20px;
+    border-left: 4px solid; background: #fafafa;
+    border-color: var(--blue);
+  }
+  .adr-card .adr-num { font-size: 10px; font-weight: 700; color: var(--blue); letter-spacing: 1px; text-transform: uppercase; }
+  .adr-card .adr-title { font-size: 14px; font-weight: 700; margin: 4px 0; }
+  .adr-card .adr-decision { font-size: 12px; color: var(--gray); }
+  .adr-card .adr-status {
+    display: inline-block; padding: 2px 8px; border-radius: 100px;
+    font-size: 10px; font-weight: 700; background: #d1fae5; color: #065f46; margin-top: 8px;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: var(--dark); color: #94a3b8;
+    text-align: center; padding: 2rem;
+    font-size: 13px; margin-top: 2rem;
+  }
+  footer strong { color: white; }
+
+  /* ─── PILL BADGE ─── */
+  .pill {
+    display: inline-block; padding: 3px 10px; border-radius: 100px;
+    font-size: 11px; font-weight: 700;
+  }
+  .pill-green  { background: var(--green-l);  color: #065f46; }
+  .pill-blue   { background: var(--blue-l);   color: #1e40af; }
+  .pill-purple { background: var(--purple-l); color: #4c1d95; }
+  .pill-orange { background: var(--orange-l); color: #92400e; }
+  .pill-red    { background: var(--red-l);    color: #7f1d1d; }
+  .pill-slate  { background: var(--slate-l);  color: #1e293b; }
+
+  /* ─── PRINCIPLE CARDS ─── */
+  .principle {
+    display: flex; gap: 14px; padding: 16px 20px;
+    border: 1.5px solid #e2e8f0; border-radius: 12px;
+    background: white;
+  }
+  .principle .num {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; flex-shrink: 0;
+    background: var(--green-l); color: var(--green);
+  }
+  .principle .title { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .principle .desc  { font-size: 12px; color: var(--slate); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { height: 5px; width: 5px; }
+  ::-webkit-scrollbar-track { background: #f1f5f9; }
+  ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════ -->
+<div class="header">
+  <div class="badge">
+    <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+    Arsitektur Sistem · Microservices Design & Implementation
+  </div>
+  <h1>EV Charging Booking System</h1>
+  <p>Sistem pemesanan slot pengisian daya kendaraan listrik — arsitektur microservices lengkap dengan 8 service independen, real-time monitoring, dan event-driven communication.</p>
+  <div class="header-meta">
+    <span>⚡ 8 Microservices</span>
+    <span>🗄️ 4 Jenis Database</span>
+    <span>📨 RabbitMQ Event Bus</span>
+    <span>🔴 WebSocket Real-time</span>
+    <span>🔐 JWT RS256 Auth</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NAVIGATION
+════════════════════════════════════════════════════════════ -->
+<nav class="toc">
+  <a href="#sec-overview">① Ikhtisar</a>
+  <a href="#sec-layer">② Layer Arsitektur</a>
+  <a href="#sec-services">③ Detail Service</a>
+  <a href="#sec-data">④ Database</a>
+  <a href="#sec-event">⑤ Event Flow</a>
+  <a href="#sec-flow">⑥ Alur Bisnis</a>
+  <a href="#sec-security">⑦ Keamanan</a>
+  <a href="#sec-adr">⑧ ADR</a>
+  <a href="#sec-tech">⑨ Tech Stack</a>
+  <a href="#sec-prinsip">⑩ Prinsip</a>
+</nav>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     1. IKHTISAR ARSITEKTUR
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-overview">
+  <div class="section-header">
+    <div class="section-icon" style="background:#d1fae5">🗺️</div>
+    <div>
+      <h2>① Ikhtisar Arsitektur Sistem</h2>
+      <p>Gambaran besar seluruh komponen sistem dan keterkaitannya</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <!-- Top-level diagram -->
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+graph TB
+    subgraph EXT["🌐 Sistem Eksternal"]
+        direction LR
+        PG["💳 Payment Gateway\nMidtrans / Xendit"]
+        EMAIL["📧 SendGrid\nEmail Service"]
+        SMS["📱 Twilio\nSMS Gateway"]
+        HW["🔌 OCPP Hardware\nCharger Physical"]
+    end
+
+    subgraph CLIENT["🖥️ Client Layer"]
+        direction LR
+        WEB["⚛️ Web App\nReact + TypeScript"]
+    end
+
+    subgraph INFRA["🔀 Infrastructure Layer"]
+        NGX["🔀 Nginx\nReverse Proxy :80"]
+    end
+
+    subgraph GW["🚪 API Gateway Layer"]
+        API["🚪 API Gateway :3000\nJWT Auth · Rate Limit · Routing"]
+    end
+
+    subgraph SVC["⚙️ Microservices Layer"]
+        US["👤 User Service\n:3001"]
+        SS["🔌 Station Service\n:3002"]
+        BS["📅 Booking Service\n:3003"]
+        QS["🔢 Queue Service\n:3004"]
+        PS["💰 Payment Service\n:3005"]
+        MS["📊 Monitoring Service\n:3006"]
+        NS["🔔 Notification Service\n:3007"]
+    end
+
+    subgraph MQ["📨 Message Broker"]
+        RMQ["🐰 RabbitMQ\nEvent Bus :5672"]
+    end
+
+    subgraph DB["🗄️ Data Layer"]
+        PG1[("🐘 PostgreSQL\nUsers")]
+        PG2[("🐘 PostgreSQL\nStations")]
+        PG3[("🐘 PostgreSQL\nBookings")]
+        PG4[("🐘 PostgreSQL\nPayments")]
+        RD[("⚡ Redis\nQueue & Cache")]
+        MDB[("🍃 MongoDB\nMonitoring")]
+    end
+
+    WEB -- "HTTPS" --> NGX
+    NGX -- "/api/*" --> API
+    NGX -- "WebSocket" --> MS
+    API -- "Proxy" --> US & SS & BS & QS & PS & MS
+
+    BS -- "Publish\nbooking.created\nbooking.cancelled" --> RMQ
+    PS -- "Publish\npayment.completed\npayment.failed" --> RMQ
+    MS -- "Publish\ncharger.session.ended\ncharger.alert" --> RMQ
+
+    RMQ -- "Subscribe" --> NS
+    RMQ -- "Subscribe" --> QS
+
+    US --> PG1
+    SS --> PG2
+    BS --> PG3
+    PS --> PG4
+    QS --> RD
+    MS --> MDB
+
+    PS -- "REST API" --> PG
+    NS -- "REST API" --> EMAIL & SMS
+    HW -- "OCPP/WebSocket" --> MS
+
+    style EXT fill:#fff7ed,stroke:#fed7aa
+    style CLIENT fill:#f0fdf4,stroke:#bbf7d0
+    style INFRA fill:#fdf4ff,stroke:#e9d5ff
+    style GW fill:#fff7ed,stroke:#fdba74
+    style SVC fill:#eff6ff,stroke:#bfdbfe
+    style MQ fill:#fdf4ff,stroke:#d8b4fe
+    style DB fill:#f8fafc,stroke:#e2e8f0
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     2. LAYER ARSITEKTUR
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-layer">
+  <div class="section-header">
+    <div class="section-icon" style="background:#dbeafe">🏗️</div>
+    <div>
+      <h2>② Layer Arsitektur</h2>
+      <p>Sistem dibagi menjadi 6 layer terpisah dengan tanggung jawab berbeda</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <div class="arch-visual">
+
+      <!-- Client Layer -->
+      <div class="arch-layer layer-client">
+        <div class="arch-layer-title">🖥️ Layer 1 — Client</div>
+        <div class="arch-boxes">
+          <div class="arch-box box-green">
+            <div class="icon">⚛️</div>
+            <div class="name">Web App</div>
+            <div class="tech">React 18 + TypeScript + Tailwind</div>
+            <div class="port">Port 5173</div>
+          </div>
+          <div class="arch-box box-slate">
+            <div class="icon">📱</div>
+            <div class="name">Mobile App</div>
+            <div class="tech">Future — React Native</div>
+            <div class="port">(Planned)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-row">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        HTTPS / WebSocket
+      </div>
+
+      <!-- Infrastructure Layer -->
+      <div class="arch-layer" style="background:#fdf4ff;border-bottom:2px dashed #e9d5ff">
+        <div class="arch-layer-title" style="color:var(--purple)">🔀 Layer 2 — Infrastructure / Reverse Proxy</div>
+        <div class="arch-boxes">
+          <div class="arch-box box-purple">
+            <div class="icon">🔀</div>
+            <div class="name">Nginx</div>
+            <div class="tech">Reverse Proxy · SSL Termination · Static Files</div>
+            <div class="port">Port 80/443</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-row">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        Route /api/* dan /ws/*
+      </div>
+
+      <!-- Gateway Layer -->
+      <div class="arch-layer layer-gateway">
+        <div class="arch-layer-title">🚪 Layer 3 — API Gateway</div>
+        <div class="arch-boxes">
+          <div class="arch-box box-orange">
+            <div class="icon">🚪</div>
+            <div class="name">API Gateway</div>
+            <div class="tech">Node.js · Express · JWT Verify · Rate Limiter</div>
+            <div class="port">Port 3000</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-row">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        HTTP Proxy ke service yang sesuai
+      </div>
+
+      <!-- Services Layer -->
+      <div class="arch-layer layer-services">
+        <div class="arch-layer-title">⚙️ Layer 4 — Microservices (Business Logic)</div>
+        <div class="arch-boxes">
+          <div class="arch-box box-blue"><div class="icon">👤</div><div class="name">User</div><div class="tech">Auth & Profil</div><div class="port">:3001</div></div>
+          <div class="arch-box box-teal"><div class="icon">🔌</div><div class="name">Station</div><div class="tech">Stasiun & Slot</div><div class="port">:3002</div></div>
+          <div class="arch-box box-green"><div class="icon">📅</div><div class="name">Booking</div><div class="tech">Pemesanan</div><div class="port">:3003</div></div>
+          <div class="arch-box box-yellow"><div class="icon">🔢</div><div class="name">Queue</div><div class="tech">Antrian</div><div class="port">:3004</div></div>
+          <div class="arch-box box-orange"><div class="icon">💰</div><div class="name">Payment</div><div class="tech">Pembayaran</div><div class="port">:3005</div></div>
+          <div class="arch-box box-red"><div class="icon">📊</div><div class="name">Monitoring</div><div class="tech">Real-time Daya</div><div class="port">:3006</div></div>
+          <div class="arch-box box-pink"><div class="icon">🔔</div><div class="name">Notification</div><div class="tech">Email/SMS</div><div class="port">:3007</div></div>
+        </div>
+      </div>
+
+      <div class="arrow-row">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        Publish / Subscribe via AMQP
+      </div>
+
+      <!-- Messaging Layer -->
+      <div class="arch-layer layer-messaging">
+        <div class="arch-layer-title">📨 Layer 5 — Message Broker (Async Communication)</div>
+        <div class="arch-boxes">
+          <div class="arch-box box-purple">
+            <div class="icon">🐰</div>
+            <div class="name">RabbitMQ</div>
+            <div class="tech">Topic Exchange · Durable Queue · DLQ</div>
+            <div class="port">:5672 · Management :15672</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-row">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        Read / Write per service
+      </div>
+
+      <!-- Data Layer -->
+      <div class="arch-layer layer-data">
+        <div class="arch-layer-title">🗄️ Layer 6 — Data (Database per Service)</div>
+        <div class="arch-boxes">
+          <div class="arch-box box-blue"><div class="icon">🐘</div><div class="name">PostgreSQL</div><div class="tech">ev_users</div><div class="port">:5432</div></div>
+          <div class="arch-box box-teal"><div class="icon">🐘</div><div class="name">PostgreSQL</div><div class="tech">ev_stations</div><div class="port">:5433</div></div>
+          <div class="arch-box box-green"><div class="icon">🐘</div><div class="name">PostgreSQL</div><div class="tech">ev_bookings</div><div class="port">:5434</div></div>
+          <div class="arch-box box-orange"><div class="icon">🐘</div><div class="name">PostgreSQL</div><div class="tech">ev_payments</div><div class="port">:5435</div></div>
+          <div class="arch-box box-yellow"><div class="icon">⚡</div><div class="name">Redis</div><div class="tech">Queue & Cache</div><div class="port">:6379</div></div>
+          <div class="arch-box box-red"><div class="icon">🍃</div><div class="name">MongoDB</div><div class="tech">ev_monitoring</div><div class="port">:27017</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     3. DETAIL SETIAP SERVICE
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-services">
+  <div class="section-header">
+    <div class="section-icon" style="background:#ede9fe">⚙️</div>
+    <div>
+      <h2>③ Detail Setiap Microservice</h2>
+      <p>Tanggung jawab, endpoint utama, dan database setiap service</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="grid-4">
+
+      <div class="svc-card" style="background:#eff6ff;border-color:#93c5fd">
+        <div class="svc-head">
+          <span class="svc-icon">🚪</span>
+          <div><div class="svc-name">API Gateway</div><div class="svc-port">Port 3000</div></div>
+        </div>
+        <div class="svc-desc">Pintu masuk tunggal. Verifikasi JWT, rate limiting, dan routing ke service yang tepat. Tidak ada business logic.</div>
+        <div class="svc-tags">
+          <span class="tag">JWT Verify</span>
+          <span class="tag">Rate Limit</span>
+          <span class="tag">HTTP Proxy</span>
+          <span class="tag">CORS</span>
+        </div>
+        <div class="svc-db">📦 Node.js + Express + Redis (rate limit)</div>
+      </div>
+
+      <div class="svc-card" style="background:#f0fdf4;border-color:#86efac">
+        <div class="svc-head">
+          <span class="svc-icon">👤</span>
+          <div><div class="svc-name">User Service</div><div class="svc-port">Port 3001</div></div>
+        </div>
+        <div class="svc-desc">Registrasi, login, manajemen profil, dan penerbitan JWT RS256 + Refresh Token.</div>
+        <div class="svc-tags">
+          <span class="tag">POST /auth/register</span>
+          <span class="tag">POST /auth/login</span>
+          <span class="tag">POST /auth/refresh</span>
+          <span class="tag">GET /users/me</span>
+        </div>
+        <div class="svc-db">🐘 PostgreSQL · ev_users</div>
+      </div>
+
+      <div class="svc-card" style="background:#ccfbf1;border-color:#5eead4">
+        <div class="svc-head">
+          <span class="svc-icon">🔌</span>
+          <div><div class="svc-name">Station Service</div><div class="svc-port">Port 3002</div></div>
+        </div>
+        <div class="svc-desc">CRUD stasiun, charger, dan slot waktu. Menyediakan endpoint internal untuk reserve/release slot secara atomik.</div>
+        <div class="svc-tags">
+          <span class="tag">GET /stations</span>
+          <span class="tag">GET /stations/:id/slots</span>
+          <span class="tag">PUT /internal/slots/:id/reserve</span>
+        </div>
+        <div class="svc-db">🐘 PostgreSQL · ev_stations</div>
+      </div>
+
+      <div class="svc-card" style="background:#fef9c3;border-color:#fde047">
+        <div class="svc-head">
+          <span class="svc-icon">📅</span>
+          <div><div class="svc-name">Booking Service</div><div class="svc-port">Port 3003</div></div>
+        </div>
+        <div class="svc-desc">Buat/batalkan booking. Menggunakan Saga pattern untuk koordinasi dengan Station & User Service. Publish event ke RabbitMQ.</div>
+        <div class="svc-tags">
+          <span class="tag">POST /bookings</span>
+          <span class="tag">GET /bookings</span>
+          <span class="tag">PUT /bookings/:id/cancel</span>
+          <span class="tag">Saga Pattern</span>
+        </div>
+        <div class="svc-db">🐘 PostgreSQL · ev_bookings</div>
+      </div>
+
+      <div class="svc-card" style="background:#fef3c7;border-color:#fbbf24">
+        <div class="svc-head">
+          <span class="svc-icon">🔢</span>
+          <div><div class="svc-name">Queue Service</div><div class="svc-port">Port 3004</div></div>
+        </div>
+        <div class="svc-desc">Antrian digital berbasis Redis Sorted Set (FIFO). Memantau ketersediaan slot setiap 30 detik dan notifikasi user pertama di antrian.</div>
+        <div class="svc-tags">
+          <span class="tag">POST /queue/join</span>
+          <span class="tag">GET /queue/position/me</span>
+          <span class="tag">Redis ZADD/ZRANK</span>
+          <span class="tag">Slot Watcher</span>
+        </div>
+        <div class="svc-db">⚡ Redis · Sorted Set</div>
+      </div>
+
+      <div class="svc-card" style="background:#fff7ed;border-color:#fdba74">
+        <div class="svc-head">
+          <span class="svc-icon">💰</span>
+          <div><div class="svc-name">Payment Service</div><div class="svc-port">Port 3005</div></div>
+        </div>
+        <div class="svc-desc">Inisiasi pembayaran via Midtrans, terima webhook konfirmasi, generate invoice, dan handle refund. Idempotency via Redis.</div>
+        <div class="svc-tags">
+          <span class="tag">POST /payments/initiate</span>
+          <span class="tag">POST /webhook/midtrans</span>
+          <span class="tag">Idempotency</span>
+          <span class="tag">Invoice PDF</span>
+        </div>
+        <div class="svc-db">🐘 PostgreSQL · ev_payments</div>
+      </div>
+
+      <div class="svc-card" style="background:#fee2e2;border-color:#f87171">
+        <div class="svc-head">
+          <span class="svc-icon">📊</span>
+          <div><div class="svc-name">Monitoring Service</div><div class="svc-port">Port 3006</div></div>
+        </div>
+        <div class="svc-desc">Menerima data OCPP dari hardware charger. Arsitektur CQRS: write ke MongoDB, baca dari Redis cache, broadcast live via Socket.io.</div>
+        <div class="svc-tags">
+          <span class="tag">OCPP WebSocket</span>
+          <span class="tag">Socket.io Rooms</span>
+          <span class="tag">CQRS Pattern</span>
+          <span class="tag">Alert Engine</span>
+        </div>
+        <div class="svc-db">🍃 MongoDB · Time-series + ⚡ Redis</div>
+      </div>
+
+      <div class="svc-card" style="background:#fce7f3;border-color:#f472b6">
+        <div class="svc-head">
+          <span class="svc-icon">🔔</span>
+          <div><div class="svc-name">Notification Service</div><div class="svc-port">Port 3007</div></div>
+        </div>
+        <div class="svc-desc">Pure event consumer — tidak punya REST API publik. Subscribe semua event dari RabbitMQ dan kirim Email (SendGrid) / SMS (Twilio).</div>
+        <div class="svc-tags">
+          <span class="tag">Event Consumer</span>
+          <span class="tag">SendGrid Email</span>
+          <span class="tag">Twilio SMS</span>
+          <span class="tag">HTML Templates</span>
+        </div>
+        <div class="svc-db">📨 RabbitMQ subscriber only</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     4. DATABASE PER SERVICE
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-data">
+  <div class="section-header">
+    <div class="section-icon" style="background:#fef9c3">🗄️</div>
+    <div>
+      <h2>④ Strategi Database per Service</h2>
+      <p>Setiap service punya database sendiri — tidak ada shared schema</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Database</th>
+          <th>Tipe</th>
+          <th>Tabel / Collection Utama</th>
+          <th>Alasan Pemilihan</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>👤 User Service</strong></td>
+          <td>PostgreSQL · <code>ev_users</code></td>
+          <td><span class="pill pill-blue">Relational</span></td>
+          <td><code>users</code>, <code>refresh_tokens</code></td>
+          <td>Butuh ACID, relasi user ↔ token, query by email</td>
+        </tr>
+        <tr>
+          <td><strong>🔌 Station Service</strong></td>
+          <td>PostgreSQL · <code>ev_stations</code></td>
+          <td><span class="pill pill-blue">Relational</span></td>
+          <td><code>stations</code>, <code>chargers</code>, <code>slots</code></td>
+          <td>Hierarki station → charger → slot, perlu foreign key & unique constraint</td>
+        </tr>
+        <tr>
+          <td><strong>📅 Booking Service</strong></td>
+          <td>PostgreSQL · <code>ev_bookings</code></td>
+          <td><span class="pill pill-blue">Relational</span></td>
+          <td><code>bookings</code>, <code>booking_events</code></td>
+          <td>Strong consistency, audit trail event sourcing</td>
+        </tr>
+        <tr>
+          <td><strong>🔢 Queue Service</strong></td>
+          <td>Redis</td>
+          <td><span class="pill pill-orange">In-Memory</span></td>
+          <td>Sorted Set <code>queue:{stationId}:{date}</code></td>
+          <td>Operasi ZADD/ZRANK sub-millisecond, TTL 24 jam, atomic pop</td>
+        </tr>
+        <tr>
+          <td><strong>💰 Payment Service</strong></td>
+          <td>PostgreSQL · <code>ev_payments</code></td>
+          <td><span class="pill pill-blue">Relational</span></td>
+          <td><code>payments</code>, <code>invoices</code></td>
+          <td>ACID untuk transaksi keuangan, audit trail, no data loss</td>
+        </tr>
+        <tr>
+          <td><strong>📊 Monitoring Service</strong></td>
+          <td>MongoDB · <code>ev_monitoring</code></td>
+          <td><span class="pill pill-green">Document</span></td>
+          <td><code>charger_readings</code>, <code>charging_sessions</code></td>
+          <td>Write-heavy time-series (1 insert/10 detik/charger), skema fleksibel per tipe charger, TTL 1 tahun</td>
+        </tr>
+        <tr>
+          <td><strong>🚪 API Gateway</strong></td>
+          <td>Redis</td>
+          <td><span class="pill pill-orange">In-Memory</span></td>
+          <td>Key <code>rl:{ip}</code>, <code>rl:auth:{ip}</code></td>
+          <td>Rate limit counter — tidak perlu persistent, fast increment</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:24px;">
+      <div class="mermaid-wrap">
+        <div class="mermaid">
+erDiagram
+    USERS {
+        uuid id PK
+        string email UK
+        string password_hash
+        string name
+        string phone
+        string ev_plate
+        enum role
+        bool is_active
+        timestamp created_at
+    }
+    REFRESH_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        string token_hash UK
+        timestamp expires_at
+    }
+    STATIONS {
+        uuid id PK
+        string name
+        text address
+        decimal latitude
+        decimal longitude
+        enum status
+        uuid operator_id
+    }
+    CHARGERS {
+        uuid id PK
+        uuid station_id FK
+        enum connector_type
+        decimal max_power_kw
+        enum status
+        string serial_number UK
+    }
+    SLOTS {
+        uuid id PK
+        uuid charger_id FK
+        date slot_date
+        time start_time
+        time end_time
+        enum status
+        decimal price_per_kwh
+    }
+    BOOKINGS {
+        uuid id PK
+        uuid user_id
+        uuid slot_id FK
+        enum status
+        text notes
+        timestamp expires_at
+    }
+    PAYMENTS {
+        uuid id PK
+        uuid booking_id FK
+        uuid user_id
+        decimal amount_idr
+        enum method
+        enum status
+        string external_ref
+    }
+    INVOICES {
+        uuid id PK
+        uuid payment_id FK
+        string invoice_number UK
+        jsonb items
+        decimal total_idr
+    }
+
+    USERS ||--o{ REFRESH_TOKENS : "has"
+    STATIONS ||--o{ CHARGERS    : "has"
+    CHARGERS  ||--o{ SLOTS      : "has"
+    PAYMENTS  ||--o| INVOICES   : "generates"
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     5. EVENT FLOW (RabbitMQ)
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-event">
+  <div class="section-header">
+    <div class="section-icon" style="background:#ede9fe">📨</div>
+    <div>
+      <h2>⑤ Event Flow — RabbitMQ Async Communication</h2>
+      <p>Semua komunikasi asinkron antar service melalui RabbitMQ topic exchange</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+flowchart LR
+    subgraph PUB["📤 Publisher"]
+        BS2["📅 Booking Service"]
+        PS2["💰 Payment Service"]
+        MS2["📊 Monitoring Service"]
+        QS2["🔢 Queue Service"]
+    end
+
+    subgraph EX["📦 RabbitMQ Exchanges (Topic)"]
+        EX_B["booking\nexchange"]
+        EX_P["payment\nexchange"]
+        EX_C["charger\nexchange"]
+        EX_Q["queue\nexchange"]
+    end
+
+    subgraph SUB["📥 Subscriber"]
+        NS2["🔔 Notification\nService"]
+        QS3["🔢 Queue\nService"]
+        PS3["💰 Payment\nService"]
+        BS3["📅 Booking\nService"]
+    end
+
+    BS2 -- "booking.created\nbooking.cancelled" --> EX_B
+    PS2 -- "payment.completed\npayment.failed\npayment.refunded" --> EX_P
+    MS2 -- "charger.session.ended\ncharger.alert" --> EX_C
+    QS2 -- "queue.slot.available" --> EX_Q
+
+    EX_B --> NS2
+    EX_B --> QS3
+    EX_B --> PS3
+    EX_P --> NS2
+    EX_P --> BS3
+    EX_C --> NS2
+    EX_Q --> NS2
+
+    style PUB fill:#eff6ff,stroke:#bfdbfe
+    style EX fill:#fdf4ff,stroke:#e9d5ff
+    style SUB fill:#f0fdf4,stroke:#bbf7d0
+      </div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--dark)">Katalog Event Lengkap</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Publisher</th>
+            <th>Subscriber</th>
+            <th>Aksi yang Dipicu</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code class="event-tag" style="background:#dbeafe;color:#1e40af">booking.created</code></td>
+            <td>Booking Service</td>
+            <td>Notification, Queue</td>
+            <td>Kirim email konfirmasi, masukkan ke antrian jika diperlukan</td>
+          </tr>
+          <tr>
+            <td><code class="event-tag" style="background:#fee2e2;color:#7f1d1d">booking.cancelled</code></td>
+            <td>Booking Service</td>
+            <td>Notification, Queue, Payment</td>
+            <td>Email pembatalan, hapus dari antrian, proses refund</td>
+          </tr>
+          <tr>
+            <td><code class="event-tag" style="background:#d1fae5;color:#065f46">payment.completed</code></td>
+            <td>Payment Service</td>
+            <td>Notification, Booking</td>
+            <td>Email invoice, update status booking → CONFIRMED</td>
+          </tr>
+          <tr>
+            <td><code class="event-tag" style="background:#fee2e2;color:#7f1d1d">payment.failed</code></td>
+            <td>Payment Service</td>
+            <td>Notification, Booking</td>
+            <td>Email gagal, cancel booking otomatis</td>
+          </tr>
+          <tr>
+            <td><code class="event-tag" style="background:#fef9c3;color:#713f12">charger.session.ended</code></td>
+            <td>Monitoring Service</td>
+            <td>Notification, Payment</td>
+            <td>Email ringkasan pengisian, hitung tagihan akhir</td>
+          </tr>
+          <tr>
+            <td><code class="event-tag" style="background:#fee2e2;color:#7f1d1d">charger.alert</code></td>
+            <td>Monitoring Service</td>
+            <td>Notification</td>
+            <td>SMS/email alert ke operator (overheat, tegangan rendah)</td>
+          </tr>
+          <tr>
+            <td><code class="event-tag" style="background:#ede9fe;color:#4c1d95">queue.slot.available</code></td>
+            <td>Queue Service</td>
+            <td>Notification</td>
+            <td>SMS notifikasi ke user: "Giliran Anda! Slot tersedia."</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     6. ALUR BISNIS UTAMA
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-flow">
+  <div class="section-header">
+    <div class="section-icon" style="background:#d1fae5">🔄</div>
+    <div>
+      <h2>⑥ Alur Bisnis Utama</h2>
+      <p>Sequence diagram untuk setiap fitur inti sistem</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <!-- Booking Flow -->
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">A. Alur Booking Slot (Saga Pattern)</h3>
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+sequenceDiagram
+    actor Driver
+    participant FE as Frontend
+    participant GW as API Gateway
+    participant BS as Booking Service
+    participant US as User Service
+    participant SS as Station Service
+    participant RMQ as RabbitMQ
+    participant NS as Notification
+
+    Driver->>FE: Pilih slot & klik "Pesan"
+    FE->>GW: POST /api/bookings {slotId}
+    GW->>GW: Verifikasi JWT Token
+    GW->>BS: Forward + X-User-Id header
+
+    Note over BS: Saga Step 1 — Validasi User
+    BS->>US: GET /internal/users/:userId
+    US-->>BS: {user data}
+
+    Note over BS: Saga Step 2 — Reserve Slot (Atomic)
+    BS->>SS: PUT /internal/slots/:slotId/reserve
+    SS->>SS: UPDATE status='RESERVED' WHERE status='AVAILABLE'
+    alt Slot tersedia
+        SS-->>BS: 200 OK
+        Note over BS: Saga Step 3 — Buat Booking
+        BS->>BS: INSERT INTO bookings {status:'PENDING_PAYMENT'}
+        BS->>RMQ: Publish booking.created
+        BS-->>FE: 201 {booking}
+        FE-->>Driver: Halaman konfirmasi booking
+        RMQ->>NS: booking.created event
+        NS->>Driver: Email konfirmasi booking
+    else Slot sudah penuh
+        SS-->>BS: 409 Conflict
+        BS-->>FE: 409 {error: "Slot tidak tersedia"}
+        FE-->>Driver: Tampil opsi "Mau antri?"
+    end
+      </div>
+    </div>
+
+    <!-- Payment Flow -->
+    <h3 style="font-size:15px;font-weight:700;margin:24px 0 12px">B. Alur Pembayaran QRIS</h3>
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+sequenceDiagram
+    actor Driver
+    participant FE as Frontend
+    participant PS as Payment Service
+    participant Midtrans as Midtrans Gateway
+    participant RMQ as RabbitMQ
+    participant BS as Booking Service
+    participant NS as Notification
+
+    Driver->>FE: Pilih QRIS & klik "Bayar"
+    FE->>PS: POST /payments/initiate {bookingId, method:'QRIS'}
+    PS->>PS: Cek idempotency (Redis)
+    PS->>PS: INSERT INTO payments {status:'PENDING'}
+    PS->>Midtrans: POST /v2/charge {amount, payment_type:'qris'}
+    Midtrans-->>PS: {qr_string, transaction_id}
+    PS-->>FE: {qrString, expiresAt}
+    FE-->>Driver: Tampil QR Code
+
+    Note over Driver,Midtrans: Driver scan QR Code di aplikasi bank
+
+    Midtrans->>PS: POST /webhook/midtrans {status:'settlement'}
+    PS->>PS: Verifikasi signature SHA-512
+    PS->>PS: UPDATE payments SET status='COMPLETED'
+    PS->>PS: INSERT INTO invoices {invoice_number}
+    PS->>RMQ: Publish payment.completed
+    PS-->>Midtrans: 200 OK
+
+    RMQ->>NS: payment.completed event
+    NS->>Driver: Email invoice pembayaran
+
+    RMQ->>BS: payment.completed event
+    BS->>BS: UPDATE bookings SET status='CONFIRMED'
+      </div>
+    </div>
+
+    <!-- Monitoring Flow -->
+    <h3 style="font-size:15px;font-weight:700;margin:24px 0 12px">C. Alur Real-time Monitoring (CQRS + WebSocket)</h3>
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+sequenceDiagram
+    participant HW as Charger Hardware
+    participant MS as Monitoring Service
+    participant MDB as MongoDB
+    participant RD as Redis Cache
+    participant IO as Socket.io
+    participant FE as Frontend (Browser)
+
+    Note over HW,MS: Charger terkoneksi via OCPP WebSocket
+
+    loop Setiap 10 detik
+        HW->>MS: OCPP MeterValues {power_kw, energy_kwh, soc, voltage}
+        Note over MS: CQRS Write Path
+        MS->>MDB: INSERT charger_readings {timestamp, ...data}
+        MS->>RD: SETEX charger:latest:{id} 30s {data}
+        Note over MS: Push to connected clients
+        MS->>IO: emit('reading', {power, soc, eta})
+        IO->>FE: WebSocket push → update grafik real-time
+    end
+
+    Note over MS: Alert Engine
+    MS->>MS: Cek threshold (temp > 60°C?)
+    alt Anomali terdeteksi
+        MS->>IO: emit('alert', {type:'OVERHEAT'})
+        IO->>FE: Tampil warning di dashboard
+    end
+
+    Note over FE: User buka halaman monitoring
+    FE->>MS: WebSocket connect + emit subscribe:charger:{id}
+    MS->>RD: GET charger:latest:{id}
+    RD-->>MS: Cached latest data
+    MS->>FE: emit('reading:latest', data) langsung
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     7. KEAMANAN
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-security">
+  <div class="section-header">
+    <div class="section-icon" style="background:#fee2e2">🔐</div>
+    <div>
+      <h2>⑦ Arsitektur Keamanan</h2>
+      <p>JWT RS256, RBAC, rate limiting, dan pertahanan berlapis</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+flowchart TD
+    A["📱 Client Request"] --> B["🔀 Nginx\nSSL Termination"]
+    B --> C["🚪 API Gateway\nSecurity Layer"]
+
+    C --> D{"🔐 JWT Valid?"}
+    D -- "❌ Invalid/Expired" --> E["401 Unauthorized"]
+    D -- "✅ Valid" --> F{"⏱️ Rate Limit OK?"}
+    F -- "❌ Exceeded" --> G["429 Too Many Requests"]
+    F -- "✅ OK" --> H["Inject Headers\nX-User-Id, X-User-Role"]
+    H --> I["Forward ke Service"]
+
+    I --> J{"🛡️ Role Check\n(di tiap service)"}
+    J -- "USER → /stations" --> K["✅ Allowed"]
+    J -- "USER → /stations POST" --> L["❌ 403 Forbidden"]
+    J -- "ADMIN → semua" --> K
+
+    subgraph JWT["🔑 JWT Flow"]
+        M["Login"] --> N["Generate\nAccess Token\nRS256 · 15 menit"]
+        M --> O["Generate\nRefresh Token\nOpaque · 7 hari"]
+        N --> P["Return to Client\n(memory only, bukan localStorage)"]
+        O --> Q["HttpOnly Cookie\nSecure · SameSite=Strict"]
+        R["Token Expired"] --> S["POST /auth/refresh\n(via cookie)"]
+        S --> N
+    end
+
+    style JWT fill:#f8fafc,stroke:#e2e8f0
+      </div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Role-Based Access Control (RBAC)</h3>
+      <table>
+        <thead><tr><th>Endpoint</th><th>USER</th><th>OPERATOR</th><th>ADMIN</th></tr></thead>
+        <tbody>
+          <tr><td>GET /stations</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>POST /stations (tambah stasiun)</td><td>❌</td><td>✅</td><td>✅</td></tr>
+          <tr><td>POST /bookings</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>DELETE /users/:id (hapus user)</td><td>❌</td><td>❌</td><td>✅</td></tr>
+          <tr><td>GET /monitoring/station/:id</td><td>✅ (booking aktif)</td><td>✅</td><td>✅</td></tr>
+          <tr><td>PUT /chargers/:id/status</td><td>❌</td><td>✅</td><td>✅</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:20px;">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Rate Limiting Policy</h3>
+      <div class="grid-3">
+        <div style="padding:16px;background:#fee2e2;border-radius:12px;border:1px solid #fca5a5">
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">🔐 Auth Endpoints</div>
+          <div style="font-size:22px;font-weight:800;color:#b91c1c">5</div>
+          <div style="font-size:12px;color:#7f1d1d">request / menit / IP</div>
+          <div style="font-size:11px;color:#9f1239;margin-top:4px">/auth/login, /auth/register</div>
+        </div>
+        <div style="padding:16px;background:#fef3c7;border-radius:12px;border:1px solid #fbbf24">
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">📡 API Endpoints</div>
+          <div style="font-size:22px;font-weight:800;color:#b45309">100</div>
+          <div style="font-size:12px;color:#92400e">request / menit / user</div>
+          <div style="font-size:11px;color:#9a3412;margin-top:4px">Semua endpoint lainnya</div>
+        </div>
+        <div style="padding:16px;background:#ede9fe;border-radius:12px;border:1px solid #a78bfa">
+          <div style="font-weight:700;font-size:13px;margin-bottom:4px">🔌 WebSocket</div>
+          <div style="font-size:22px;font-weight:800;color:#5b21b6">10</div>
+          <div style="font-size:12px;color:#4c1d95">koneksi simultan / user</div>
+          <div style="font-size:11px;color:#581c87;margin-top:4px">Monitoring live per charger</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     8. ARCHITECTURE DECISION RECORDS
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-adr">
+  <div class="section-header">
+    <div class="section-icon" style="background:#dbeafe">📋</div>
+    <div>
+      <h2>⑧ Architecture Decision Records (ADR)</h2>
+      <p>Dokumentasi resmi setiap keputusan arsitektur yang diambil tim</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="grid-2">
+
+      <div class="adr-card">
+        <div class="adr-num">ADR-001</div>
+        <div class="adr-title">Microservices Architecture</div>
+        <div class="adr-decision">Pilih Microservices atas Monolith — karena kebutuhan skalabilitas per domain berbeda, isolasi kegagalan, dan tim yang bekerja paralel.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+      <div class="adr-card">
+        <div class="adr-num">ADR-002</div>
+        <div class="adr-title">Custom API Gateway (bukan Kong/AWS)</div>
+        <div class="adr-decision">Gunakan Node.js + Express custom gateway — kontrol penuh, tidak ada vendor lock-in, familiar bagi tim, dan tidak ada overhead plugin registry.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+      <div class="adr-card">
+        <div class="adr-num">ADR-003</div>
+        <div class="adr-title">Database per Service</div>
+        <div class="adr-decision">Setiap service punya database sendiri — PostgreSQL untuk transaksional, Redis untuk antrian, MongoDB untuk time-series monitoring. Tidak ada shared schema.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+      <div class="adr-card">
+        <div class="adr-num">ADR-004</div>
+        <div class="adr-title">RabbitMQ (bukan Kafka)</div>
+        <div class="adr-decision">RabbitMQ dipilih karena DLQ built-in, flexible routing (topic exchange), dan throughput 20-50k msg/s sudah cukup. Kafka overkill untuk skala ini.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+      <div class="adr-card">
+        <div class="adr-num">ADR-005</div>
+        <div class="adr-title">JWT RS256 + Refresh Token</div>
+        <div class="adr-decision">RS256 (asymmetric) dipilih agar service lain bisa verify token dengan public key tanpa bisa memalsukan token. Refresh token di HttpOnly cookie untuk keamanan XSS.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+      <div class="adr-card">
+        <div class="adr-num">ADR-006</div>
+        <div class="adr-title">CQRS untuk Monitoring Service</div>
+        <div class="adr-decision">Write path (MongoDB) dan Read path (Redis cache + Socket.io) dipisah karena asimetri ekstrem: 1 insert/10 detik vs ratusan concurrent read oleh dashboard user.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+      <div class="adr-card">
+        <div class="adr-num">ADR-007</div>
+        <div class="adr-title">Socket.io WebSocket (bukan HTTP Polling)</div>
+        <div class="adr-decision">WebSocket dipilih karena latency rendah, bidirectional, dan efficient. Socket.io menambah room management (1 room per charger) dan auto-reconnect.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+      <div class="adr-card" style="border-color:var(--orange)">
+        <div class="adr-num" style="color:var(--orange)">ADR-008</div>
+        <div class="adr-title">Saga Pattern untuk Distributed Transaction</div>
+        <div class="adr-decision">Booking service menggunakan Choreography Saga: jika slot berhasil di-reserve tapi booking gagal dibuat, compensating transaction otomatis melepas slot kembali.</div>
+        <div class="adr-status">✅ Accepted</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     9. TECH STACK
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-tech">
+  <div class="section-header">
+    <div class="section-icon" style="background:#ccfbf1">🛠️</div>
+    <div>
+      <h2>⑨ Technology Stack</h2>
+      <p>Semua teknologi yang digunakan dalam sistem ini</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <div class="grid-2">
+      <div>
+        <h3 style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--slate)">FRONTEND</h3>
+        <div class="tech-grid">
+          <span class="tech-pill"><span class="dot" style="background:#61dafb"></span>React 18</span>
+          <span class="tech-pill"><span class="dot" style="background:#3178c6"></span>TypeScript</span>
+          <span class="tech-pill"><span class="dot" style="background:#06b6d4"></span>Tailwind CSS</span>
+          <span class="tech-pill"><span class="dot" style="background:#646cff"></span>Vite</span>
+          <span class="tech-pill"><span class="dot" style="background:#ff4154"></span>React Router v6</span>
+          <span class="tech-pill"><span class="dot" style="background:#ef4444"></span>React Query</span>
+          <span class="tech-pill"><span class="dot" style="background:#764abc"></span>Zustand</span>
+          <span class="tech-pill"><span class="dot" style="background:#22c55e"></span>Recharts</span>
+          <span class="tech-pill"><span class="dot" style="background:#3d9970"></span>Leaflet.js</span>
+          <span class="tech-pill"><span class="dot" style="background:#25c2a0"></span>Socket.io-client</span>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--slate)">BACKEND — SERVICES</h3>
+        <div class="tech-grid">
+          <span class="tech-pill"><span class="dot" style="background:#339933"></span>Node.js 20</span>
+          <span class="tech-pill"><span class="dot" style="background:#000000"></span>Express.js</span>
+          <span class="tech-pill"><span class="dot" style="background:#52b0e7"></span>Sequelize ORM</span>
+          <span class="tech-pill"><span class="dot" style="background:#47a248"></span>Mongoose ODM</span>
+          <span class="tech-pill"><span class="dot" style="background:#f05032"></span>amqplib</span>
+          <span class="tech-pill"><span class="dot" style="background:#dc382d"></span>ioredis</span>
+          <span class="tech-pill"><span class="dot" style="background:#000000"></span>jsonwebtoken</span>
+          <span class="tech-pill"><span class="dot" style="background:#6366f1"></span>Socket.io</span>
+          <span class="tech-pill"><span class="dot" style="background:#f59e0b"></span>Winston (log)</span>
+          <span class="tech-pill"><span class="dot" style="background:#f97316"></span>Joi (validation)</span>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--slate)">DATABASE & INFRA</h3>
+        <div class="tech-grid">
+          <span class="tech-pill"><span class="dot" style="background:#336791"></span>PostgreSQL 15</span>
+          <span class="tech-pill"><span class="dot" style="background:#47a248"></span>MongoDB 7</span>
+          <span class="tech-pill"><span class="dot" style="background:#dc382d"></span>Redis 7</span>
+          <span class="tech-pill"><span class="dot" style="background:#ff6600"></span>RabbitMQ 3.13</span>
+          <span class="tech-pill"><span class="dot" style="background:#2496ed"></span>Docker</span>
+          <span class="tech-pill"><span class="dot" style="background:#009639"></span>Nginx</span>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--slate)">EXTERNAL SERVICES</h3>
+        <div class="tech-grid">
+          <span class="tech-pill"><span class="dot" style="background:#003580"></span>Midtrans</span>
+          <span class="tech-pill"><span class="dot" style="background:#1a82e2"></span>SendGrid</span>
+          <span class="tech-pill"><span class="dot" style="background:#f22f46"></span>Twilio</span>
+          <span class="tech-pill"><span class="dot" style="background:#333333"></span>OCPP 1.6/2.0</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     10. PRINSIP ARSITEKTUR
+════════════════════════════════════════════════════════════ -->
+<section class="section" id="sec-prinsip">
+  <div class="section-header">
+    <div class="section-icon" style="background:#fef3c7">📐</div>
+    <div>
+      <h2>⑩ Prinsip Arsitektur</h2>
+      <p>Panduan desain yang menjadi fondasi seluruh keputusan teknis</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="grid-2">
+
+      <div class="principle">
+        <div class="num">1</div>
+        <div>
+          <div class="title">Single Responsibility</div>
+          <div class="desc">Setiap service menangani tepat satu domain bisnis. Booking Service tidak boleh menyentuh logika pembayaran.</div>
+        </div>
+      </div>
+
+      <div class="principle">
+        <div class="num">2</div>
+        <div>
+          <div class="title">Loose Coupling</div>
+          <div class="desc">Service berkomunikasi lewat API kontrak dan event, BUKAN shared database atau shared object.</div>
+        </div>
+      </div>
+
+      <div class="principle">
+        <div class="num">3</div>
+        <div>
+          <div class="title">Failure Isolation</div>
+          <div class="desc">Kegagalan Notification Service tidak boleh menghentikan proses booking atau pembayaran.</div>
+        </div>
+      </div>
+
+      <div class="principle">
+        <div class="num">4</div>
+        <div>
+          <div class="title">API First</div>
+          <div class="desc">Kontrak API (OpenAPI spec) didefinisikan sebelum implementasi. Frontend dan backend dapat dikembangkan paralel.</div>
+        </div>
+      </div>
+
+      <div class="principle">
+        <div class="num">5</div>
+        <div>
+          <div class="title">Observability</div>
+          <div class="desc">Setiap service menghasilkan structured JSON log, health check endpoint, dan siap untuk tracing dengan Correlation ID.</div>
+        </div>
+      </div>
+
+      <div class="principle">
+        <div class="num">6</div>
+        <div>
+          <div class="title">Eventual Consistency</div>
+          <div class="desc">Data antar service konsisten secara eventual melalui event. Strong consistency hanya diperlukan dalam satu service.</div>
+        </div>
+      </div>
+
+      <div class="principle">
+        <div class="num">7</div>
+        <div>
+          <div class="title">Infrastructure as Code</div>
+          <div class="desc">Semua infrastruktur didefinisikan dalam Docker Compose — reproducible di environment manapun dengan satu perintah.</div>
+        </div>
+      </div>
+
+      <div class="principle">
+        <div class="num">8</div>
+        <div>
+          <div class="title">Defense in Depth</div>
+          <div class="desc">Keamanan berlapis: SSL di Nginx → JWT di Gateway → Role check di Service → Input validation di setiap endpoint.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════════════ -->
+<footer>
+  <p>
+    <strong>EV Charging Booking System</strong> — Arsitektur Microservices<br>
+    <span style="opacity:.6">Peran: Arsitek Sistem · Merancang arsitektur, diagram, ADR, dan menjaga konsistensi desain</span>
+  </p>
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    themeVariables: {
+      primaryColor:       '#10b981',
+      primaryTextColor:   '#0f172a',
+      primaryBorderColor: '#059669',
+      lineColor:          '#64748b',
+      secondaryColor:     '#f0fdf4',
+      tertiaryColor:      '#eff6ff',
+      background:         '#ffffff',
+      mainBkg:            '#ffffff',
+      nodeBorder:         '#e2e8f0',
+      fontSize:           '13px'
+    },
+    flowchart: { curve: 'basis', htmlLabels: true },
+    sequence:  { useMaxWidth: true, wrap: true }
+  })
+</script>
+
+</body>
+</html>

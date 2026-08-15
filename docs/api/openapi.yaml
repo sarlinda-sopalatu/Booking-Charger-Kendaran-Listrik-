@@ -1,0 +1,906 @@
+openapi: "3.0.3"
+info:
+  title: EV Charging Booking API
+  description: |
+    API lengkap untuk sistem Booking Charger Kendaraan Listrik.
+    
+    ## Autentikasi
+    Gunakan Bearer token JWT di header Authorization:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    
+    ## Base URL
+    - Development: `http://localhost:3000/api`
+    - Production: `https://api.ev-charging.id/api`
+    
+    ## Rate Limiting
+    - Auth endpoints: 5 req/menit per IP
+    - Semua lainnya: 100 req/menit per user
+    
+  version: "1.0.0"
+  contact:
+    name: Tim EV Charging
+    email: dev@ev-charging.id
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development
+
+tags:
+  - name: Authentication
+    description: Registrasi, login, refresh token
+  - name: Users
+    description: Manajemen profil pengguna
+  - name: Stations
+    description: Stasiun pengisian dan charger
+  - name: Slots
+    description: Slot waktu pengisian
+  - name: Bookings
+    description: Pemesanan slot pengisian
+  - name: Queue
+    description: Antrian digital
+  - name: Payments
+    description: Pembayaran dan invoice
+  - name: Monitoring
+    description: Real-time monitoring daya
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+      required: [error, message]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "usr_01H..."
+        email:
+          type: string
+          format: email
+          example: "budi@email.com"
+        name:
+          type: string
+          example: "Budi Santoso"
+        phone:
+          type: string
+          example: "+628123456789"
+        ev_plate:
+          type: string
+          example: "B 1234 EV"
+        role:
+          type: string
+          enum: [USER, OPERATOR, ADMIN]
+        created_at:
+          type: string
+          format: date-time
+
+    Station:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Stasiun Pengisian Sudirman"
+        address:
+          type: string
+          example: "Jl. Sudirman No. 1, Jakarta Pusat"
+        latitude:
+          type: number
+          format: float
+          example: -6.2088
+        longitude:
+          type: number
+          format: float
+          example: 106.8456
+        status:
+          type: string
+          enum: [ACTIVE, MAINTENANCE, CLOSED]
+        chargers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Charger'
+        distance_km:
+          type: number
+          description: Jarak dari lokasi pencarian (jika request dengan koordinat)
+
+    Charger:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        station_id:
+          type: string
+          format: uuid
+        connector_type:
+          type: string
+          enum: [AC_TYPE1, AC_TYPE2, DC_CCS2, DC_CHAdeMO, DC_GB_T]
+          example: "DC_CCS2"
+        max_power_kw:
+          type: number
+          example: 50.0
+        status:
+          type: string
+          enum: [AVAILABLE, OCCUPIED, RESERVED, FAULTED, OFFLINE]
+
+    Slot:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        charger_id:
+          type: string
+          format: uuid
+        slot_date:
+          type: string
+          format: date
+          example: "2026-08-15"
+        start_time:
+          type: string
+          example: "14:00"
+        end_time:
+          type: string
+          example: "16:00"
+        status:
+          type: string
+          enum: [AVAILABLE, RESERVED, OCCUPIED, MAINTENANCE]
+        price_per_kwh:
+          type: number
+          example: 2500
+        estimated_cost_idr:
+          type: number
+          description: Estimasi biaya berdasarkan max_power_kw dan durasi
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        slot_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING_PAYMENT, CONFIRMED, CHARGING, COMPLETED, CANCELLED, EXPIRED]
+        notes:
+          type: string
+        slot:
+          $ref: '#/components/schemas/Slot'
+        station:
+          $ref: '#/components/schemas/Station'
+        payment:
+          $ref: '#/components/schemas/Payment'
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: Batas waktu pembayaran (30 menit setelah booking dibuat)
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        booking_id:
+          type: string
+          format: uuid
+        amount_idr:
+          type: number
+          example: 75000
+        method:
+          type: string
+          enum: [QRIS, BANK_TRANSFER, E_WALLET, CREDIT_CARD]
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED, REFUNDED]
+        payment_url:
+          type: string
+          description: URL redirect untuk metode non-QRIS
+        qr_string:
+          type: string
+          description: QR code string untuk metode QRIS
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    ChargerReading:
+      type: object
+      properties:
+        charger_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        power_kw:
+          type: number
+          example: 22.5
+        energy_kwh:
+          type: number
+          example: 5.234
+          description: Total energi yang telah dikirim dalam sesi ini
+        state_of_charge:
+          type: number
+          example: 75
+          description: Persentase baterai EV (0-100)
+        voltage_v:
+          type: number
+          example: 220
+        current_a:
+          type: number
+          example: 32
+        temperature_c:
+          type: number
+          example: 38
+        eta_minutes:
+          type: number
+          example: 30
+          description: Estimasi menit selesai pengisian
+
+    QueueEntry:
+      type: object
+      properties:
+        booking_id:
+          type: string
+          format: uuid
+        station_id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          example: 3
+        total_in_queue:
+          type: integer
+          example: 7
+        estimated_wait_minutes:
+          type: integer
+          example: 45
+        joined_at:
+          type: string
+          format: date-time
+
+# ===========================================================================
+# PATHS
+# ===========================================================================
+paths:
+
+  # AUTH ===========================================================================
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Daftar akun baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                name:
+                  type: string
+                  minLength: 2
+                phone:
+                  type: string
+                  example: "+628123456789"
+                ev_plate:
+                  type: string
+                  example: "B 1234 EV"
+      responses:
+        "201":
+          description: Akun berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  access_token:
+                    type: string
+                  expires_in:
+                    type: integer
+                    description: Detik hingga access token expired
+        "400":
+          description: Validasi input gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Email sudah terdaftar
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login dan dapatkan JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login berhasil
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie berisi refresh token
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  access_token:
+                    type: string
+                  expires_in:
+                    type: integer
+        "401":
+          description: Email atau password salah
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token menggunakan refresh token dari cookie
+      responses:
+        "200":
+          description: Token berhasil di-refresh
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  expires_in:
+                    type: integer
+        "401":
+          description: Refresh token tidak valid atau expired
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout dan invalidate refresh token
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Logout berhasil
+
+  # USERS ===========================================================================
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Dapatkan profil saya
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    put:
+      tags: [Users]
+      summary: Update profil saya
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                ev_plate:
+                  type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # STATIONS ===========================================================================
+  /stations:
+    get:
+      tags: [Stations]
+      summary: Cari dan daftar stasiun pengisian
+      parameters:
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+        - name: radius
+          in: query
+          schema:
+            type: number
+            default: 10
+          description: Radius pencarian dalam km
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, ALL]
+        - name: connector_type
+          in: query
+          schema:
+            type: string
+        - name: min_power_kw
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Station'
+                  total:
+                    type: integer
+
+  /stations/{id}:
+    get:
+      tags: [Stations]
+      summary: Detail stasiun
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        "404":
+          description: Stasiun tidak ditemukan
+
+  /stations/{id}/slots:
+    get:
+      tags: [Slots]
+      summary: Daftar slot di stasiun berdasarkan tanggal
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2026-08-15"
+        - name: connector_type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                  chargers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        charger:
+                          $ref: '#/components/schemas/Charger'
+                        slots:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/Slot'
+
+  # BOOKINGS ===========================================================================
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Buat booking baru
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slot_id]
+              properties:
+                slot_id:
+                  type: string
+                  format: uuid
+                notes:
+                  type: string
+      responses:
+        "201":
+          description: Booking berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        "409":
+          description: Slot sudah tidak tersedia
+
+    get:
+      tags: [Bookings]
+      summary: Daftar booking saya
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Booking'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+
+  /bookings/{id}:
+    get:
+      tags: [Bookings]
+      summary: Detail booking
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        "404":
+          description: Booking tidak ditemukan
+
+  /bookings/{id}/cancel:
+    put:
+      tags: [Bookings]
+      summary: Batalkan booking
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Booking berhasil dibatalkan
+        "400":
+          description: Booking tidak bisa dibatalkan
+
+  # QUEUE ===========================================================================
+  /queue/join:
+    post:
+      tags: [Queue]
+      summary: Bergabung ke antrian stasiun
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [station_id, slot_date]
+              properties:
+                station_id:
+                  type: string
+                  format: uuid
+                slot_date:
+                  type: string
+                  format: date
+                connector_type:
+                  type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueEntry'
+
+  /queue/station/{stationId}:
+    get:
+      tags: [Queue]
+      summary: Lihat antrian di stasiun
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  station_id:
+                    type: string
+                  queue:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QueueEntry'
+                  total:
+                    type: integer
+
+  /queue/position/{bookingId}:
+    get:
+      tags: [Queue]
+      summary: Cek posisi antrian saya
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueEntry'
+
+  /queue/leave/{bookingId}:
+    delete:
+      tags: [Queue]
+      summary: Keluar dari antrian
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil keluar dari antrian
+
+  # PAYMENTS ===========================================================================
+  /payments/initiate:
+    post:
+      tags: [Payments]
+      summary: Inisiasi pembayaran
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [booking_id, method]
+              properties:
+                booking_id:
+                  type: string
+                  format: uuid
+                method:
+                  type: string
+                  enum: [QRIS, BANK_TRANSFER, E_WALLET]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Status pembayaran
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  /payments/booking/{bookingId}:
+    get:
+      tags: [Payments]
+      summary: Pembayaran berdasarkan booking
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+
+  # MONITORING ===========================================================================
+  /monitoring/station/{stationId}:
+    get:
+      tags: [Monitoring]
+      summary: Status semua charger di stasiun
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  station_id:
+                    type: string
+                  chargers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        charger_id:
+                          type: string
+                        status:
+                          type: string
+                        latest_reading:
+                          $ref: '#/components/schemas/ChargerReading'
+
+  /monitoring/charger/{chargerId}:
+    get:
+      tags: [Monitoring]
+      summary: Data monitoring charger tertentu
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chargerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  charger_id:
+                    type: string
+                  latest_reading:
+                    $ref: '#/components/schemas/ChargerReading'
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChargerReading'
+                  active_session:
+                    type: object
+                    nullable: true
