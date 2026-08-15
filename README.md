@@ -239,12 +239,11 @@ Lihat folder `docs/adr/` untuk semua keputusan arsitektur:
 | Peran | Tanggung Jawab |
 |---|---|
 | **Arsitek Sistem** | Merancang arsitektur, diagram, ADR, konsistensi desain |
-| Backend Developer | Implementasi microservices |
-| Frontend Developer | Implementasi UI/UX |
-| DevOps Engineer | Docker, CI/CD, infrastruktur |
-| QA Engineer | Testing, pengujian beban |
+| Backend Developer | Mengimplementasi endpoint/service inti dan logika bisnis |
+| Infranstructur & DevOps  | Docker, compose, load balancer/gateway, dan menjalankan sistem. |
+| Data & Persistence Engineer  | Skema data, cache/Redis, konsistensi stok, dan migrasi. |
+| QA Engineer | Pengujian, load test, AI-LOG, README, dan laporan akhir. |
 
 ---
 
-*Proyek ini merupakan implementasi mata kuliah Desain dan Implementasi Microservices*
-"# Booking-Charger-Kendaran-Listrik" 
+
