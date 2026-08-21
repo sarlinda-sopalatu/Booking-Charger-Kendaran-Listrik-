@@ -38,12 +38,21 @@ app.use((err, _req, res, _next) => {
 });
 
 async function start() {
-  await sequelize.authenticate();
-  await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
-  logger.info('Booking Service DB synced');
-  await connectRabbitMQ();
   app.listen(PORT, () => logger.info(`Booking Service running on port ${PORT}`));
+
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync();
+    logger.info('Booking Service DB synced');
+  } catch (err) {
+    logger.error(`DB init failed: ${err.message}`);
+  }
+
+  // Do not block HTTP startup when message broker is temporarily unavailable.
+  connectRabbitMQ().catch((err) => {
+    logger.error(`RabbitMQ background connect failed: ${err.message}`);
+  });
 }
 
-start().catch((err) => { logger.error(err.message); process.exit(1); });
+start().catch((err) => { logger.error(err.message); });
 module.exports = app;
