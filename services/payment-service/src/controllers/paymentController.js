@@ -6,6 +6,7 @@ const { publishEvent } = require('../messaging/publisher');
 const logger = require('../utils/logger');
 
 const BOOKING_SERVICE = process.env.BOOKING_SERVICE_URL || 'http://booking-service:3003';
+const STATION_SERVICE = process.env.STATION_SERVICE_URL || 'http://station-service:3002';
 
 // Tarif per kWh (default)
 const DEFAULT_PRICE_PER_KWH = 2500;
@@ -40,8 +41,14 @@ async function initiatePayment(redis, { userId, userEmail, bookingId, method }) 
     throw e;
   }
 
-  // Hitung amount (dalam production, ini dari booking data yang sudah dihitung)
-  const amount = 75000; // Placeholder — dalam production ambil dari booking
+  // Hitung amount dari data slot
+  let amount = 50000; // fallback
+  try {
+    const { data: slot } = await axios.get(`${STATION_SERVICE}/internal/slots/${booking.slot_id}`);
+    amount = calculateAmountFromSlot(slot);
+  } catch (err) {
+    logger.warn(`Could not fetch slot for amount calc: ${err.message}. Using fallback.`);
+  }
 
   // Buat payment record
   const payment = await Payment.create({
@@ -72,6 +79,17 @@ async function initiatePayment(redis, { userId, userEmail, bookingId, method }) 
 
   logger.info(`Payment initiated: ${payment.id} for booking ${bookingId}`);
   return payment;
+}
+
+// Hitung biaya dari data slot
+function calculateAmountFromSlot(slot) {
+  if (!slot || !slot.start_time || !slot.end_time) return 50000;
+  const [sh, sm] = slot.start_time.split(':').map(Number);
+  const [eh, em] = slot.end_time.split(':').map(Number);
+  const durationHours = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+  const powerKw = slot.charger?.max_power_kw || 22;
+  const energyKwh = powerKw * durationHours;
+  return Math.max(5000, Math.round(energyKwh * parseFloat(slot.price_per_kwh || DEFAULT_PRICE_PER_KWH)));
 }
 
 // Simulasi response Midtrans (untuk development)

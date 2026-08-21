@@ -10,6 +10,7 @@ const { sequelize } = require('./db');
 const bookingRoutes = require('./routes/bookings');
 const internalRoutes = require('./routes/internal');
 const { connectRabbitMQ } = require('./messaging/publisher');
+const { connectConsumer } = require('./messaging/consumer');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -42,6 +43,7 @@ async function start() {
   await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
   logger.info('Booking Service DB synced');
   await connectRabbitMQ();
+  await connectConsumer();
   app.listen(PORT, () => logger.info(`Booking Service running on port ${PORT}`));
 }
 

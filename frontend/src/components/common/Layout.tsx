@@ -1,8 +1,8 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import {
-  Zap, MapPin, Calendar, CreditCard, Activity,
-  Users, User, LogOut, Menu, X
+  Zap, MapPin, Calendar, Activity,
+  Users, User, LogOut, Menu
 } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { stationApi } from '../services/api'
-import { MapPin, Zap, Search, Filter, ChevronRight } from 'lucide-react'
+import { MapPin, Search, ChevronRight } from 'lucide-react'
 
 const CONNECTOR_TYPES = ['ALL', 'AC_TYPE2', 'DC_CCS2', 'DC_CHAdeMO', 'DC_GB_T']
 const CONNECTOR_LABELS: Record<string, string> = {

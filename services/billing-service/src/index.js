@@ -8,6 +8,7 @@ const morgan   = require('morgan');
 const logger   = require('./utils/logger');
 const { sequelize } = require('./db');
 const billingRoutes = require('./routes/billing');
+const { connectConsumer } = require('./messaging/consumer');
 
 const app  = express();
 const PORT = process.env.PORT || 3008;
@@ -40,6 +41,7 @@ async function start() {
   await sequelize.authenticate();
   await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
   logger.info('Billing Service DB synced');
+  await connectConsumer();
   app.listen(PORT, () => logger.info(`Billing Service running on port ${PORT}`));
 }
 
