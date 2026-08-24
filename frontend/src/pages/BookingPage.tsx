@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { bookingApi, stationApi } from '../services/api'
-import { ChevronLeft, Zap, Clock, MapPin, CreditCard } from 'lucide-react'
+import { ChevronLeft, Zap, MapPin, CreditCard } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function BookingPage() {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Zap } from 'lucide-react'
+import { Zap, UserPlus, ShieldCheck, CircleCheckBig } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function RegisterPage() {
@@ -29,18 +29,35 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-green-500 rounded-2xl mb-4 shadow-lg">
-            <Zap className="w-7 h-7 text-white" />
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-6">
+        <div className="card relative overflow-hidden">
+          <div className="pointer-events-none absolute -top-12 -left-10 h-36 w-36 rounded-full bg-emerald-200/45 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 -right-8 h-36 w-36 rounded-full bg-blue-200/40 blur-3xl" />
+
+          <div className="relative">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-700 rounded-2xl mb-4 shadow-lg">
+              <Zap className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900 leading-tight">Buat Akun EV Charging</h1>
+            <p className="text-slate-600 mt-2 text-sm">
+              Daftar sekali, lalu kelola booking charging lebih cepat kapan saja.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">EV Charging</h1>
-          <p className="text-gray-500 text-sm mt-1">Buat akun baru</p>
+
+          <div className="mt-6 space-y-3">
+            <Feature icon={<UserPlus size={16} />} text="Registrasi cepat dengan data yang sederhana" />
+            <Feature icon={<CircleCheckBig size={16} />} text="Langsung bisa akses Stasiun, Booking, dan Antrian" />
+            <Feature icon={<ShieldCheck size={16} />} text="Akun aman untuk penggunaan harian" />
+          </div>
         </div>
 
         <div className="card shadow-md">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Daftar Akun</h2>
+          <div className="mb-6">
+            <p className="text-xs uppercase tracking-[0.16em] text-emerald-700/85 font-semibold">Registrasi</p>
+            <h2 className="text-2xl font-bold text-slate-900 mt-1">Daftar Akun</h2>
+            <p className="text-sm text-slate-600 mt-1">Lengkapi data berikut untuk memulai.</p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -74,12 +91,23 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-4">
+          <p className="text-center text-sm text-slate-500 mt-4">
             Sudah punya akun?{' '}
             <Link to="/login" className="text-green-600 font-medium hover:underline">Masuk</Link>
           </p>
         </div>
       </div>
+    </div>
+  )
+}
+
+function Feature({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/75 px-3 py-2.5">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+        {icon}
+      </span>
+      <p className="text-sm text-slate-700">{text}</p>
     </div>
   )
 }

@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { stationApi } from '../services/api'
 import { MapPin, Zap, Clock, ChevronLeft, Calendar } from 'lucide-react'
-import toast from 'react-hot-toast'
 
 const CONNECTOR_LABELS: Record<string, string> = {
   AC_TYPE2: 'AC Type 2', DC_CCS2: 'DC CCS2', DC_CHAdeMO: 'DC CHAdeMO', DC_GB_T: 'DC GB/T'
