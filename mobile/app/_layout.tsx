@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore'
 export default function RootLayout() {
   const { isAuthenticated, isLoading, loadUser } = useAuthStore()
 
-  useEffect(() => { loadUser() }, [])
+  useEffect(() => { loadUser().catch(() => {}) }, [])
 
   useEffect(() => {
     if (!isLoading) {

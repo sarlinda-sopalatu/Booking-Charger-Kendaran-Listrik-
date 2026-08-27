@@ -29,15 +29,17 @@ export default function AdminBookingsScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const totalPages = Math.ceil(total / 20)
 
-  async function load(p = page, s = status) {
+  async function load(p: number, s: string) {
     try {
       const { data } = await adminApi.getAllBookings({ page: p, limit: 20, ...(s ? { status: s } : {}) })
       setBookings(data.bookings ?? [])
       setTotal(data.total ?? 0)
+    } catch (e: any) {
+      console.error('Admin bookings error:', e?.response?.data || e?.message)
     } finally { setLoading(false); setRefreshing(false) }
   }
 
-  useEffect(() => { load() }, [page, status])
+  useEffect(() => { setLoading(true); load(page, status) }, [page, status])
 
   return (
     <View style={s.page}>
@@ -57,7 +59,7 @@ export default function AdminBookingsScreen() {
           <TouchableOpacity
             key={f}
             style={[s.filterBtn, status === f && s.filterActive]}
-            onPress={() => { setStatus(f); setPage(1); setLoading(true) }}
+            onPress={() => { setStatus(f); setPage(1); setLoading(true); load(1, f) }}
           >
             <Text style={[s.filterText, status === f && s.filterActiveText]}>
               {FILTER_LABELS[f]}
@@ -69,7 +71,7 @@ export default function AdminBookingsScreen() {
       {loading ? <ActivityIndicator color="#10B981" style={{ marginTop: 32 }} /> : (
         <ScrollView
           contentContainerStyle={{ paddingBottom: 24, paddingHorizontal: 16 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(page, status) }} />}
         >
           {bookings.map(b => (
             <View key={b.id} style={s.card}>
@@ -81,10 +83,10 @@ export default function AdminBookingsScreen() {
                   </Text>
                 </View>
               </View>
-              {b.user && (
+              {(b.user_name || b.user?.name) && (
                 <View style={s.userRow}>
-                  <Text style={s.userName}>{b.user.name}</Text>
-                  <Text style={s.userEmail}>{b.user.email}</Text>
+                  <Text style={s.userName}>{b.user_name || b.user?.name}</Text>
+                  <Text style={s.userEmail}>{b.user_email || b.user?.email}</Text>
                 </View>
               )}
               {b.station_name && <Text style={s.meta}>📍 {b.station_name}</Text>}
@@ -124,7 +126,7 @@ const s = StyleSheet.create({
   backText:       { fontSize: 22, color: '#111827' },
   title:          { fontSize: 18, fontWeight: '700', color: '#111827' },
   sub:            { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  filterScroll:   { flexShrink: 0, paddingHorizontal: 16, paddingVertical: 10 },
+  filterScroll:   { flexShrink: 0, flexGrow: 0, paddingHorizontal: 16, paddingVertical: 10, maxHeight: 56 },
   filterBtn:      { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: '#fff', marginRight: 8 },
   filterActive:   { backgroundColor: '#10B981', borderColor: '#10B981' },
   filterText:     { fontSize: 12, fontWeight: '600', color: '#6B7280' },
