@@ -30,7 +30,11 @@ api.interceptors.response.use(
       original._retry = true
       try {
         const refreshToken = await SecureStore.getItemAsync('refresh_token')
-        if (!refreshToken) throw new Error('no_refresh_token')
+        if (!refreshToken) {
+          // Tidak ada refresh token — bersihkan dan reject dengan error yang sama
+          await SecureStore.deleteItemAsync('access_token').catch(() => {})
+          return Promise.reject(err)
+        }
         const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
           headers: { Authorization: `Bearer ${refreshToken}` }
         })
@@ -38,11 +42,10 @@ api.interceptors.response.use(
         original.headers['Authorization'] = `Bearer ${data.access_token}`
         return api(original)
       } catch {
-        // Bersihkan token yang tidak valid, tidak perlu throw lagi
-        try {
-          await SecureStore.deleteItemAsync('access_token')
-          await SecureStore.deleteItemAsync('refresh_token')
-        } catch {}
+        // Refresh gagal — bersihkan semua token
+        await SecureStore.deleteItemAsync('access_token').catch(() => {})
+        await SecureStore.deleteItemAsync('refresh_token').catch(() => {})
+        delete api.defaults.headers.common['Authorization']
       }
     }
     return Promise.reject(err)

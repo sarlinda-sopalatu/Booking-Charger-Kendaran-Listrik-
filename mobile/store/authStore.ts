@@ -31,19 +31,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       const token = await SecureStore.getItemAsync('access_token')
       if (!token) { set({ isLoading: false }); return }
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      // Verifikasi token ke server — jangan percaya token lokal saja
       const { data } = await api.get('/users/me')
-      await SecureStore.setItemAsync('user', JSON.stringify(data))
       set({ user: data, isAuthenticated: true, isLoading: false })
     } catch {
-      // Token expired atau invalid — bersihkan semua
-      try {
-        await SecureStore.deleteItemAsync('access_token')
-        await SecureStore.deleteItemAsync('refresh_token')
-        await SecureStore.deleteItemAsync('user')
-      } catch {}
+      // Token expired atau invalid — bersihkan semua, arahkan ke login
+      await SecureStore.deleteItemAsync('access_token').catch(() => {})
+      await SecureStore.deleteItemAsync('refresh_token').catch(() => {})
+      await SecureStore.deleteItemAsync('user').catch(() => {})
       delete api.defaults.headers.common['Authorization']
       set({ user: null, isAuthenticated: false, isLoading: false })
+      // Jangan re-throw — biarkan app redirect ke login
     }
   },
 
