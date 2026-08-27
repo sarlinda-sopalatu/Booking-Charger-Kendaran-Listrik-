@@ -1,15 +1,21 @@
 import { useEffect } from 'react'
 import { Stack, router } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { LogBox } from 'react-native'
 import { useAuthStore } from '../store/authStore'
 
-// Suppress unhandled promise rejection warnings dari axios 401 di dev mode
-if (typeof global !== 'undefined') {
-  const originalHandler = (global as any).onunhandledrejection
-  ;(global as any).onunhandledrejection = (event: any) => {
-    if (event?.reason?.isAxiosError && event?.reason?.response?.status === 401) return
-    if (originalHandler) originalHandler(event)
-  }
+LogBox.ignoreLogs(['Uncaught (in promise', 'AxiosError'])
+
+// Override React Native global unhandled promise rejection handler
+const originalPromiseHandler = (global as any).HermesInternal?.hasPromise
+  ? undefined
+  : (global as any).__reactNativeGlobalHandler
+
+;(global as any).__reactNativeGlobalHandler = (error: any, isFatal: boolean) => {
+  // Abaikan axios 401 errors — sudah ditangani oleh interceptor
+  if (error?.isAxiosError && error?.response?.status === 401) return
+  if (error?.message?.includes('401')) return
+  if (originalPromiseHandler) originalPromiseHandler(error, isFatal)
 }
 
 export default function RootLayout() {
