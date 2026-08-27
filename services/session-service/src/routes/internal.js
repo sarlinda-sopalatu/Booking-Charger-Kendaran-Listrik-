@@ -38,9 +38,9 @@ router.post('/sessions/start', async (req, res) => {
     const { booking_id, charger_id, user_id, energy_kwh_start, tariff_per_kwh,
             slot_date, slot_start_time } = req.body;
 
-    // Validasi: pastikan waktu slot sudah tiba
+    // Validasi: pastikan waktu slot sudah tiba (WIB = UTC+7)
     if (slot_date && slot_start_time) {
-      const slotStart = new Date(`${slot_date}T${slot_start_time}`);
+      const slotStart = new Date(`${slot_date}T${slot_start_time}+07:00`);
       if (new Date() < slotStart) {
         return res.status(400).json({
           error: `Sesi belum bisa dimulai. Jadwal slot: ${slot_date} ${slot_start_time}`
