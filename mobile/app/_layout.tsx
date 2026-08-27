@@ -3,6 +3,15 @@ import { Stack, router } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useAuthStore } from '../store/authStore'
 
+// Suppress unhandled promise rejection warnings dari axios 401 di dev mode
+if (typeof global !== 'undefined') {
+  const originalHandler = (global as any).onunhandledrejection
+  ;(global as any).onunhandledrejection = (event: any) => {
+    if (event?.reason?.isAxiosError && event?.reason?.response?.status === 401) return
+    if (originalHandler) originalHandler(event)
+  }
+}
+
 export default function RootLayout() {
   const { isAuthenticated, isLoading, loadUser } = useAuthStore()
 
