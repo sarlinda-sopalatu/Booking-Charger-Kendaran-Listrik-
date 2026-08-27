@@ -25,12 +25,12 @@ try {
 
 /**
  * Buat rate limiter umum untuk semua API endpoint.
- * Default: 100 requests per menit per user (berdasarkan X-User-Id header).
+ * Default: 300 requests per menit per user (berdasarkan X-User-Id header).
  */
 function createRateLimiter(options = {}) {
   const config = {
     windowMs: 60 * 1000, // 1 menit
-    max: options.max || 10000,
+    max: options.max || 1000,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => req.user?.sub || req.ip,
@@ -54,11 +54,11 @@ function createRateLimiter(options = {}) {
 
 /**
  * Rate limiter ketat untuk auth endpoints (login, register).
- * 5 requests per menit per IP.
+ * 150 requests per menit per IP.
  */
 const authRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 60,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => req.ip,

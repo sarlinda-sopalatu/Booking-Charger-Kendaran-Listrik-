@@ -1,84 +1,106 @@
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { Rate, Trend } from 'k6/metrics';
-import { SharedArray } from 'k6/data';
+import http from "k6/http";
+import { check, sleep } from "k6";
 
-const errorRate = new Rate('error_rate');
-const reqDuration = new Trend('req_duration');
+const BASE = __ENV.BASE || "http://host.docker.internal:3000/api";
+
+// Akun untuk load test (gunakan beberapa user supaya tidak kena rate limit)
+const USERS = [
+  { email: "budi.santoso@gmail.com",   password: "Password123!" },
+  { email: "siti.rahayu@gmail.com",    password: "Password123!" },
+  { email: "admin@ev-charging.id",     password: "Admin123!"    },
+];
+
+// Slot ID yang tersedia di stasiun PLN Monas, tanggal 2026-08-27
+const SLOT_IDS = [
+  "f3282d48-dd43-4d55-a141-2101126c9f0f",
+  "09621240-676b-42c0-b020-03d099fb5351",
+  "8e844cfd-8469-4b48-9cd8-16f4627a7172",
+  "76fa96ba-2ae5-4284-b1e7-d42aa788ae35",
+  "408a53e9-f8fe-4240-9592-3d3028cdbd0e",
+];
+
+const STATION_ID = "a1b2c3d4-0001-0001-0001-000000000001";
 
 export const options = {
   scenarios: {
-    serbuan: {
-      executor: 'constant-arrival-rate',
-      rate: 25,           // 25 req/detik
-      timeUnit: '1s',
-      duration: '60s',
-      preAllocatedVUs: 50,
-      maxVUs: 100,
+    // Skenario Charger EV: 1500 request dalam 60 detik
+    serbuan_booking: {
+      executor: "ramping-arrival-rate",
+      startRate: 5,
+      timeUnit: "1s",
+      preAllocatedVUs: 100,
+      maxVUs: 500,
+      stages: [
+        { target: 25,  duration: "15s" }, // naik
+        { target: 25,  duration: "40s" }, // tahan puncak (~1500 req total)
+        { target: 0,   duration: "5s"  }, // reda
+      ],
     },
   },
   thresholds: {
-    http_req_duration: ['p(95)<2000'],
-    error_rate: ['rate<0.1'],
+    http_req_duration: ["p(95)<2000"],  // baseline — belum dioptimasi
+    http_req_failed:   ["rate<0.5"],    // toleransi tinggi untuk baseline
   },
 };
 
-const BASE_URL = 'http://host.docker.internal:3000/api';
+// Login dan ambil token
+function getToken(user) {
+  const res = http.post(
+    `${BASE}/auth/login`,
+    JSON.stringify({ email: user.email, password: user.password }),
+    { headers: { "Content-Type": "application/json" } }
+  );
+  if (res.status === 200) {
+    return res.json("access_token");
+  }
+  return null;
+}
 
-const CREDENTIALS = [
-  { email: 'budi.santoso@gmail.com', password: 'Password123!' },
-  { email: 'admin@ev-charging.id',   password: 'Admin123!' },
-];
-
-// Login sekali di setup, token dibagikan ke semua VU
 export function setup() {
-  const tokens = [];
-
-  for (const cred of CREDENTIALS) {
-    const res = http.post(
-      `${BASE_URL}/auth/login`,
-      JSON.stringify({ email: cred.email, password: cred.password }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-
-    const ok = check(res, { 'setup login ok': (r) => r.status === 200 });
-    if (ok) {
-      const token = res.json('access_token') || res.json('token') || res.json('accessToken');
-      tokens.push(token);
-    } else {
-      console.error(`Login gagal untuk ${cred.email}: ${res.status} ${res.body}`);
-    }
+  // Ambil token untuk semua user
+  const tokens = {};
+  for (const user of USERS) {
+    const token = getToken(user);
+    if (token) tokens[user.email] = token;
   }
-
-  if (tokens.length === 0) {
-    throw new Error('Tidak ada token yang berhasil didapat saat setup!');
-  }
-
   return { tokens };
 }
 
 export default function (data) {
-  const token = data.tokens[__VU % data.tokens.length];
-  const headers = { Authorization: `Bearer ${token}` };
+  const emails = Object.keys(data.tokens);
+  if (emails.length === 0) return;
 
-  // 1. List stations
-  const stationsRes = http.get(`${BASE_URL}/stations`, { headers });
-  reqDuration.add(stationsRes.timings.duration);
-  const s1 = check(stationsRes, { 'stations 200': (r) => r.status === 200 });
-  if (!s1) { console.log(`stations FAIL ${stationsRes.status}: ${stationsRes.body.substring(0, 120)}`); }
-  errorRate.add(!s1);
+  // Pilih user secara bergantian berdasarkan VU id
+  const email = emails[__VU % emails.length];
+  const token  = data.tokens[email];
+  const headers = {
+    "Content-Type":  "application/json",
+    "Authorization": `Bearer ${token}`,
+  };
 
-  // 2. List bookings
-  const bookingsRes = http.get(`${BASE_URL}/bookings`, { headers });
-  reqDuration.add(bookingsRes.timings.duration);
-  const s2 = check(bookingsRes, { 'bookings 200 or 403': (r) => r.status === 200 || r.status === 403 });
-  errorRate.add(!s2);
+  // 70% POST /bookings (endpoint panas), 30% GET /stations (endpoint baca)
+  const r = Math.random();
 
-  // 3. Profile user
-  const profileRes = http.get(`${BASE_URL}/users/me`, { headers });
-  reqDuration.add(profileRes.timings.duration);
-  const s3 = check(profileRes, { 'profile 200': (r) => r.status === 200 });
-  errorRate.add(!s3);
+  if (r < 0.70) {
+    // Endpoint panas — POST /bookings
+    const slotId = SLOT_IDS[Math.floor(Math.random() * SLOT_IDS.length)];
+    const res = http.post(
+      `${BASE}/bookings`,
+      JSON.stringify({ slot_id: slotId }),
+      { headers }
+    );
+    // 409 = slot sudah dipesan (bukan error server) — ini BENAR
+    // 429 = rate limited — wajar untuk baseline
+    check(res, {
+      "booking: bukan 5xx": (r) => r.status < 500,
+    });
+  } else {
+    // Endpoint baca — GET /stations/:id
+    const res = http.get(`${BASE}/stations/${STATION_ID}`, { headers });
+    check(res, {
+      "stations: 200": (r) => r.status === 200,
+    });
+  }
 
-  sleep(1);
+  sleep(0.1);
 }

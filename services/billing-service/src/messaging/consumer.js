@@ -13,7 +13,7 @@ async function connectConsumer() {
       const channel = await conn.createChannel();
 
       // Exchange sudah di-declare oleh session-service
-      await channel.assertExchange('charger', 'topic', { durable: true });
+      await channel.assertExchange('session', 'topic', { durable: true });
 
       // Dead-letter exchange untuk pesan gagal
       await channel.assertExchange('billing.dlx', 'fanout', { durable: true });
@@ -26,7 +26,7 @@ async function connectConsumer() {
         }
       });
 
-      await channel.bindQueue(queue, 'charger', 'session.completed');
+      await channel.bindQueue(queue, 'session', 'session.completed');
 
       channel.prefetch(1);
       channel.consume(queue, async (msg) => {

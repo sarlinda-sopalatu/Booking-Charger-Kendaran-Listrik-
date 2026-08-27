@@ -35,8 +35,26 @@ router.get('/sessions/:id', async (req, res) => {
 // POST /internal/sessions/start — Dipanggil oleh booking-service saat kendaraan terdeteksi
 router.post('/sessions/start', async (req, res) => {
   try {
-    const { booking_id, charger_id, user_id, energy_kwh_start, tariff_per_kwh } = req.body;
-    const session = await startSession({ bookingId: booking_id, chargerId: charger_id, userId: user_id, energyKwhStart: energy_kwh_start, tariffPerKwh: tariff_per_kwh });
+    const { booking_id, charger_id, user_id, energy_kwh_start, tariff_per_kwh,
+            slot_date, slot_start_time } = req.body;
+
+    // Validasi: pastikan waktu slot sudah tiba
+    if (slot_date && slot_start_time) {
+      const slotStart = new Date(`${slot_date}T${slot_start_time}`);
+      if (new Date() < slotStart) {
+        return res.status(400).json({
+          error: `Sesi belum bisa dimulai. Jadwal slot: ${slot_date} ${slot_start_time}`
+        });
+      }
+    }
+
+    const session = await startSession({
+      bookingId:      booking_id,
+      chargerId:      charger_id,
+      userId:         user_id,
+      energyKwhStart: energy_kwh_start,
+      tariffPerKwh:   tariff_per_kwh
+    });
     return res.status(201).json(session);
   } catch (err) {
     logger.error(`Internal start session: ${err.message}`);

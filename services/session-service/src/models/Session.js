@@ -24,7 +24,6 @@ const ChargingSession = sequelize.define('ChargingSession', {
   booking_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    unique: true,
     comment: 'Referensi ke booking di booking-service'
   },
   charger_id: {

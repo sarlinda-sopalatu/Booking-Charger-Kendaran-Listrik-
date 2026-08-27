@@ -22,13 +22,15 @@ router.get('/', async (req, res) => {
     if (connector_type) chargerWhere.connector_type = connector_type;
     if (min_power_kw)   chargerWhere.max_power_kw = { [Op.gte]: parseFloat(min_power_kw) };
 
+    const hasChargerFilter = Object.keys(chargerWhere).length > 0;
+
     const stations = await Station.findAll({
       where,
       include: [{
         model: Charger,
         as: 'chargers',
-        where: Object.keys(chargerWhere).length ? chargerWhere : undefined,
-        required: false
+        where: hasChargerFilter ? chargerWhere : undefined,
+        required: hasChargerFilter
       }],
       limit: 50
     });
@@ -123,6 +125,77 @@ router.post('/', async (req, res) => {
   try {
     const station = await Station.create({ ...value, operator_id: req.userId });
     return res.status(201).json(station);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// PUT /stations/:id — Edit stasiun (ADMIN only)
+// ============================================================
+const updateStationSchema = Joi.object({
+  name:          Joi.string().min(3).optional(),
+  address:       Joi.string().optional(),
+  latitude:      Joi.number().min(-90).max(90).optional(),
+  longitude:     Joi.number().min(-180).max(180).optional(),
+  phone:         Joi.string().optional().allow(''),
+  opening_hours: Joi.string().optional().allow(''),
+  facilities:    Joi.array().items(Joi.string()).optional(),
+  status:        Joi.string().valid('ACTIVE','INACTIVE','MAINTENANCE').optional()
+}).min(1);
+
+router.put('/:id', async (req, res) => {
+  if (!['OPERATOR', 'ADMIN'].includes(req.userRole)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { error, value } = updateStationSchema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const station = await Station.findByPk(req.params.id);
+    if (!station) return res.status(404).json({ error: 'Stasiun tidak ditemukan' });
+    await station.update(value);
+    return res.json(station);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// DELETE /stations/:id — Hapus stasiun (ADMIN only)
+// ============================================================
+router.delete('/:id', async (req, res) => {
+  if (req.userRole !== 'ADMIN') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const station = await Station.findByPk(req.params.id);
+    if (!station) return res.status(404).json({ error: 'Stasiun tidak ditemukan' });
+    await station.destroy();
+    return res.json({ message: 'Stasiun berhasil dihapus' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// PATCH /chargers/:chargerId/slots/:slotId/price — Update harga slot (ADMIN)
+// ============================================================
+router.patch('/chargers/:chargerId/slots/:slotId/price', async (req, res) => {
+  if (!['OPERATOR', 'ADMIN'].includes(req.userRole)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { price_per_kwh } = req.body;
+  if (!price_per_kwh || isNaN(parseFloat(price_per_kwh))) {
+    return res.status(400).json({ error: 'price_per_kwh wajib diisi dan harus berupa angka' });
+  }
+  try {
+    const slot = await Slot.findOne({
+      where: { id: req.params.slotId, charger_id: req.params.chargerId }
+    });
+    if (!slot) return res.status(404).json({ error: 'Slot tidak ditemukan' });
+    await slot.update({ price_per_kwh: parseFloat(price_per_kwh) });
+    return res.json(slot);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

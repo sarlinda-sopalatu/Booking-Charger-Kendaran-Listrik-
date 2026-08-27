@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+frontend/dist/
+mobile/dist/
+mobile/.expo/
+**/.expo/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+**/.env
+
+# Keys & secrets
+keys/
+infrastructure/keys/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo

@@ -175,12 +175,15 @@ services:
       PORT: 3000
       NODE_ENV: development
       JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
+      JWT_SECRET: ev-super-secret-key-2026
       USER_SERVICE_URL: http://user-service:3001
       STATION_SERVICE_URL: http://station-service:3002
       BOOKING_SERVICE_URL: http://booking-service:3003
       QUEUE_SERVICE_URL: http://queue-service:3004
       PAYMENT_SERVICE_URL: http://payment-service:3005
       MONITORING_SERVICE_URL: http://monitoring-service:3006
+      BILLING_SERVICE_URL: http://billing-service:3008
+      SESSION_SERVICE_URL: http://session-service:3009
       REDIS_URL: redis://:redis_password@redis:6379
     volumes:
       - ./keys:/app/keys:ro
@@ -208,11 +211,12 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgres://ev_user:ev_password@postgres-users:5432/ev_users
       REDIS_URL: redis://:redis_password@redis:6379
+      JWT_SECRET: ev-super-secret-key-2026
       JWT_PRIVATE_KEY_PATH: /app/keys/private.pem
       JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
       JWT_ISSUER: ev-charging-user-service
       JWT_AUDIENCE: ev-charging-system
-      ACCESS_TOKEN_EXPIRE: 900
+      ACCESS_TOKEN_EXPIRE: 86400
       REFRESH_TOKEN_EXPIRE: 604800
     volumes:
       - ./keys:/app/keys:ro
@@ -267,6 +271,7 @@ services:
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
       STATION_SERVICE_URL: http://station-service:3002
       USER_SERVICE_URL: http://user-service:3001
+      SESSION_SERVICE_URL: http://session-service:3009
       BOOKING_EXPIRY_MINUTES: 30
       TZ: Asia/Jakarta
     networks:
@@ -339,6 +344,66 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3005/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  billing-service:
+    build:
+      context: ../services/billing-service
+      dockerfile: Dockerfile
+    container_name: ev-billing-service
+    restart: unless-stopped
+    ports:
+      - "3008:3008"
+    environment:
+      PORT: 3008
+      NODE_ENV: development
+      DATABASE_URL: postgres://ev_user:ev_password@postgres-payments:5432/ev_payments
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
+    networks:
+      - ev-network
+    depends_on:
+      postgres-payments:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3008/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  session-service:
+    build:
+      context: ../services/session-service
+      dockerfile: Dockerfile
+    container_name: ev-session-service
+    restart: unless-stopped
+    ports:
+      - "3009:3009"
+    environment:
+      PORT: 3009
+      NODE_ENV: development
+      DATABASE_URL: postgres://ev_user:ev_password@postgres-bookings:5432/ev_bookings
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/ev_vhost
+      REDIS_URL: redis://:redis_password@redis:6379
+      JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
+      JWT_SECRET: ev-super-secret-key-2026
+      FRONTEND_URL: http://localhost:5173
+    volumes:
+      - ./keys:/app/keys:ro
+    networks:
+      - ev-network
+    depends_on:
+      postgres-bookings:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3009/health"]
       interval: 15s
       timeout: 5s
       retries: 3

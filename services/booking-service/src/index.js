@@ -11,6 +11,7 @@ const bookingRoutes = require('./routes/bookings');
 const internalRoutes = require('./routes/internal');
 const { connectRabbitMQ } = require('./messaging/publisher');
 const { connectConsumer } = require('./messaging/consumer');
+const { startScheduler }  = require('./jobs/bookingScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -44,6 +45,7 @@ async function start() {
   logger.info('Booking Service DB synced');
   await connectRabbitMQ();
   await connectConsumer();
+  startScheduler();
   app.listen(PORT, () => logger.info(`Booking Service running on port ${PORT}`));
 }
 

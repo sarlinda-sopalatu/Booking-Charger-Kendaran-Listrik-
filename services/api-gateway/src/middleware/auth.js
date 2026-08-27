@@ -7,13 +7,20 @@ const logger = require('./logger');
 
 // Load public key sekali saat startup
 let publicKey;
+const jwtSecret = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 try {
   const keyPath = process.env.JWT_PUBLIC_KEY_PATH || path.join(__dirname, '../../keys/public.pem');
-  publicKey = fs.readFileSync(keyPath, 'utf8');
-  logger.info('JWT public key loaded successfully');
+  const keyContent = fs.readFileSync(keyPath, 'utf8');
+  // Validasi apakah ini benar-benar RSA key
+  if (keyContent.includes('BEGIN') && keyContent.includes('PUBLIC KEY')) {
+    publicKey = keyContent;
+    logger.info('JWT public key loaded successfully');
+  } else {
+    throw new Error('File bukan RSA public key yang valid');
+  }
 } catch (err) {
-  logger.warn(`Could not load JWT public key from file: ${err.message}. Using fallback secret.`);
-  publicKey = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+  logger.warn(`Could not load JWT public key from file: ${err.message}. Using JWT_SECRET.`);
+  publicKey = jwtSecret;
 }
 
 /**

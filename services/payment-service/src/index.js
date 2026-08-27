@@ -9,6 +9,7 @@ const { sequelize } = require('./db');
 const paymentRoutes = require('./routes/payments');
 const webhookRoutes = require('./routes/webhook');
 const { connectRabbitMQ, startConsumer } = require('./messaging/consumer');
+const { connectRabbitMQ: connectPublisher } = require('./messaging/publisher');
 const Redis = require('ioredis');
 
 const app = express();
@@ -47,6 +48,7 @@ async function start() {
   await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
   logger.info('Payment Service DB synced');
   await connectRabbitMQ();
+  await connectPublisher();
   await startConsumer();
   app.listen(PORT, () => logger.info(`Payment Service running on port ${PORT}`));
 }

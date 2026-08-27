@@ -58,7 +58,7 @@ app.use((err, _req, res, _next) => {
 // ── Start ────────────────────────────────────────────────
 async function start() {
   await sequelize.authenticate();
-  await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+  await sequelize.sync(); // alter dinonaktifkan — tabel sudah ada di DB
   logger.info('Session Service DB synced');
   await connectRabbitMQ();
   await startConsumer(io, redis);

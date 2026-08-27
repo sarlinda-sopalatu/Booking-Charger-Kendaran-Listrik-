@@ -1,7 +1,7 @@
 -- =============================================================================
 -- seeds/user-service/seed_users.sql
 -- Data contoh: User pengguna sistem booking charger EV
--- Password semua user: "Password123!" (sudah di-hash dengan bcrypt)
+-- Password semua user: " " (sudah di-hash dengan bcrypt)
 -- Jalankan: psql -U ev_user -d ev_users < seeds/user-service/seed_users.sql
 -- =============================================================================
 

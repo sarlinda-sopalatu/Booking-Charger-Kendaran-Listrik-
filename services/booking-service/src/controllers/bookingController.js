@@ -54,26 +54,42 @@ async function createBooking({ userId, userEmail, slotId, notes }) {
     throw err;
   }
 
+  // Step 3b: Cek apakah user sudah punya booking aktif di tanggal yang sama
+  if (slotData.slot_date) {
+    const existing = await Booking.findOne({
+      where: {
+        user_id:   userId,
+        slot_date: slotData.slot_date,
+        status:    ['PENDING_PAYMENT', 'CONFIRMED', 'CHARGING']
+      }
+    });
+    if (existing) {
+      // Kembalikan slot yang baru di-reserve
+      await axios.put(`${STATION_SERVICE}/internal/slots/${slotId}/release`).catch(() => {});
+      const e = new Error(
+        `Anda sudah memiliki booking aktif pada tanggal ${slotData.slot_date} (ID: ${existing.id})`
+      );
+      e.status = 409;
+      e.existingBookingId = existing.id;
+      e.existingSlotDate  = slotData.slot_date;
+      throw e;
+    }
+  }
+
   // Step 4: Buat booking record
   let booking;
   try {
     const expiresAt = new Date(Date.now() + EXPIRY_MINUTES * 60 * 1000);
-    const startT = slotData.start_time?.slice(0, 5) || '';
-    const endT   = slotData.end_time?.slice(0, 5)   || '';
     booking = await Booking.create({
-      user_id:         userId,
-      slot_id:         slotId,
-      status:          'PENDING_PAYMENT',
+      user_id:        userId,
+      slot_id:        slotId,
+      status:         'PENDING_PAYMENT',
       notes,
-      expires_at:      expiresAt,
-      slot_date:       slotData.slot_date                    || null,
-      slot_start_time: slotData.start_time                   || null,
-      slot_end_time:   slotData.end_time                     || null,
-      charger_id:      slotData.charger?.id                  || null,
-      station_name:    slotData.charger?.station?.name       || null,
-      charger_type:    slotData.charger?.connector_type      || null,
-      slot_label:      startT && endT ? `${startT}–${endT}` : null,
-      total_amount:    calculateEstimatedCost(slotData)      || null
+      slot_date:      slotData.slot_date          || null,
+      slot_start_time:slotData.start_time         || null,
+      slot_end_time:  slotData.end_time           || null,
+      charger_id:     slotData.charger_id || slotData.charger?.id || null,
+      expires_at:     expiresAt
     });
 
     await BookingEvent.create({

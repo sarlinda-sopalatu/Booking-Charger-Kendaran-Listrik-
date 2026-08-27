@@ -11,21 +11,12 @@ const INTERVAL_MS      = 60 * 1000; // setiap menit
 
 // ─── Helper: waktu lokal sekarang dalam format HH:MM:SS ──────────────────────
 function nowTime() {
-  // Gunakan waktu lokal server (bukan UTC)
   const now = new Date();
-  const hh  = String(now.getHours()).padStart(2, '0');
-  const mm  = String(now.getMinutes()).padStart(2, '0');
-  const ss  = String(now.getSeconds()).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
+  return now.toTimeString().slice(0, 8); // 'HH:MM:SS'
 }
 
 function todayDate() {
-  // Gunakan tanggal lokal server (bukan UTC)
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm   = String(now.getMonth() + 1).padStart(2, '0');
-  const dd   = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
 }
 
 // ─── 1. Auto-START: CONFIRMED → panggil session-service, status → CHARGING ──
