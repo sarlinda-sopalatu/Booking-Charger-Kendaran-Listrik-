@@ -58,12 +58,22 @@ async function createBooking({ userId, userEmail, slotId, notes }) {
   let booking;
   try {
     const expiresAt = new Date(Date.now() + EXPIRY_MINUTES * 60 * 1000);
+    const startT = slotData.start_time?.slice(0, 5) || '';
+    const endT   = slotData.end_time?.slice(0, 5)   || '';
     booking = await Booking.create({
-      user_id:    userId,
-      slot_id:    slotId,
-      status:     'PENDING_PAYMENT',
+      user_id:         userId,
+      slot_id:         slotId,
+      status:          'PENDING_PAYMENT',
       notes,
-      expires_at: expiresAt
+      expires_at:      expiresAt,
+      slot_date:       slotData.slot_date                    || null,
+      slot_start_time: slotData.start_time                   || null,
+      slot_end_time:   slotData.end_time                     || null,
+      charger_id:      slotData.charger?.id                  || null,
+      station_name:    slotData.charger?.station?.name       || null,
+      charger_type:    slotData.charger?.connector_type      || null,
+      slot_label:      startT && endT ? `${startT}–${endT}` : null,
+      total_amount:    calculateEstimatedCost(slotData)      || null
     });
 
     await BookingEvent.create({

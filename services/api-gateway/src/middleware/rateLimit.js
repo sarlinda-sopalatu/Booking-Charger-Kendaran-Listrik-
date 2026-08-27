@@ -30,7 +30,7 @@ try {
 function createRateLimiter(options = {}) {
   const config = {
     windowMs: 60 * 1000, // 1 menit
-    max: options.max || 100,
+    max: options.max || 10000,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => req.user?.sub || req.ip,
@@ -58,7 +58,7 @@ function createRateLimiter(options = {}) {
  */
 const authRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => req.ip,

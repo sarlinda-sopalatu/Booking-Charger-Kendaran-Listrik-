@@ -13,10 +13,18 @@ const Booking = sequelize.define('Booking', {
     ),
     defaultValue: 'PENDING_PAYMENT'
   },
-  notes:         { type: DataTypes.TEXT, allowNull: true },
-  expires_at:    { type: DataTypes.DATE, allowNull: true },
-  cancelled_at:  { type: DataTypes.DATE, allowNull: true },
-  cancel_reason: { type: DataTypes.TEXT, allowNull: true }
+  notes:          { type: DataTypes.TEXT,         allowNull: true },
+  expires_at:     { type: DataTypes.DATE,         allowNull: true },
+  cancelled_at:   { type: DataTypes.DATE,         allowNull: true },
+  cancel_reason:  { type: DataTypes.TEXT,         allowNull: true },
+  slot_date:      { type: DataTypes.DATEONLY,     allowNull: true },
+  slot_start_time:{ type: DataTypes.STRING(8),    allowNull: true },
+  slot_end_time:  { type: DataTypes.STRING(8),    allowNull: true },
+  charger_id:     { type: DataTypes.UUID,         allowNull: true },
+  station_name:   { type: DataTypes.STRING(255),  allowNull: true },
+  charger_type:   { type: DataTypes.STRING(50),   allowNull: true },
+  slot_label:     { type: DataTypes.STRING(50),   allowNull: true },
+  total_amount:   { type: DataTypes.INTEGER,      allowNull: true }
 }, {
   tableName: 'bookings',
   timestamps: true,

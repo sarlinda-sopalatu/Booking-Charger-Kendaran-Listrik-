@@ -42,20 +42,20 @@ export default function RegisterPage() {
         <div className="card shadow-md">
           <h2 className="text-xl font-bold text-gray-900 mb-6">Daftar Akun</h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             <div>
               <label className="label">Nama Lengkap</label>
-              <input className="input" placeholder="Budi Santoso"
+              <input className="input" placeholder="Budi Santoso" autoComplete="name"
                 value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required />
             </div>
             <div>
               <label className="label">Email</label>
-              <input type="email" className="input" placeholder="email@example.com"
+              <input type="email" className="input" placeholder="email@example.com" autoComplete="new-password"
                 value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
             </div>
             <div>
               <label className="label">Password</label>
-              <input type="password" className="input" placeholder="Minimal 8 karakter"
+              <input type="password" className="input" placeholder="Minimal 8 karakter" autoComplete="new-password"
                 value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required />
             </div>
             <div>

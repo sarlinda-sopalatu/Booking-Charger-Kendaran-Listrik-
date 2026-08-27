@@ -2,8 +2,9 @@
 
 // Internal routes — dipanggil service lain (Booking Service)
 const express = require('express');
+const { Op } = require('sequelize');
 const { sequelize } = require('../db');
-const { Slot, Charger } = require('../models/Station');
+const { Slot, Charger, Station } = require('../models/Station');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -41,7 +42,7 @@ router.put('/slots/:id/release', async (req, res) => {
   try {
     await Slot.update(
       { status: 'AVAILABLE' },
-      { where: { id: req.params.id, status: { $ne: 'OCCUPIED' } } }
+      { where: { id: req.params.id, status: { [Op.ne]: 'OCCUPIED' } } }
     );
     logger.info(`Slot released: ${req.params.id}`);
     return res.json({ message: 'Slot dirilis' });
@@ -74,7 +75,7 @@ router.put('/slots/:id/complete', async (req, res) => {
 router.get('/slots/:id', async (req, res) => {
   try {
     const slot = await Slot.findByPk(req.params.id, {
-      include: [{ model: Charger, as: 'charger' }]
+      include: [{ model: Charger, as: 'charger', include: [{ model: Station, as: 'station' }] }]
     });
     if (!slot) return res.status(404).json({ error: 'Slot tidak ditemukan' });
     return res.json(slot);

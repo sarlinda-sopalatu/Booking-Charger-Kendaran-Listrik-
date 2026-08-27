@@ -16,7 +16,7 @@ function requireAuth(req, res, next) {
 // POST /bookings — Buat booking baru
 const createSchema = Joi.object({
   slot_id: Joi.string().uuid().required(),
-  notes:   Joi.string().max(500).optional()
+  notes:   Joi.string().max(500).allow('').optional()
 });
 
 router.post('/', requireAuth, async (req, res) => {

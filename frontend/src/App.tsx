@@ -13,10 +13,19 @@ import PaymentPage from './pages/PaymentPage'
 import MonitoringPage from './pages/MonitoringPage'
 import QueuePage from './pages/QueuePage'
 import ProfilePage from './pages/ProfilePage'
+import AdminBookingsPage from './pages/AdminBookingsPage'
+import AdminStationsPage from './pages/AdminStationsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore(s => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (!['ADMIN', 'OPERATOR'].includes(user.role)) return <Navigate to="/" replace />
+  return <>{children}</>
 }
 
 export default function App() {
@@ -39,6 +48,10 @@ export default function App() {
           <Route path="monitoring/:chargerId"         element={<MonitoringPage />} />
           <Route path="queue"                         element={<QueuePage />} />
           <Route path="profile"                       element={<ProfilePage />} />
+
+          {/* Admin-only routes */}
+          <Route path="admin/bookings"  element={<AdminRoute><AdminBookingsPage /></AdminRoute>} />
+          <Route path="admin/stations"  element={<AdminRoute><AdminStationsPage /></AdminRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

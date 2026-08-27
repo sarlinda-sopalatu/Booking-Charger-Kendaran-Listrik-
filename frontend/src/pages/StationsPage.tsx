@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { stationApi } from '../services/api'
 import { MapPin, Search, ChevronRight } from 'lucide-react'
 
@@ -21,8 +21,18 @@ function ChargerBadge({ type, power }: { type: string; power: number }) {
 }
 
 export default function StationsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
-  const [connector, setConnector] = useState('ALL')
+  const connector = searchParams.get('connector') || 'ALL'
+
+  const setConnector = (type: string) => {
+    if (type === 'ALL') {
+      searchParams.delete('connector')
+    } else {
+      searchParams.set('connector', type)
+    }
+    setSearchParams(searchParams)
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['stations', connector],

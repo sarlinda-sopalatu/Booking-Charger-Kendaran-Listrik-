@@ -48,10 +48,15 @@ export const stationApi = {
 
 // Bookings
 export const bookingApi = {
-  create: (slotId: string, notes?: string) => api.post('/bookings', { slot_id: slotId, notes }),
+  create: (slotId: string, notes?: string) => api.post('/bookings', { slot_id: slotId, ...(notes && notes.trim() ? { notes: notes.trim() } : {}) }),
   getAll: (params?: any) => api.get('/bookings', { params }),
   getById:(id: string)   => api.get(`/bookings/${id}`),
-  cancel: (id: string, reason?: string) => api.put(`/bookings/${id}/cancel`, { reason })
+  cancel: (id: string, reason?: string) => api.put(`/bookings/${id}/cancel`, { reason }),
+  // Cek apakah user punya booking aktif pada tanggal tertentu
+  getActiveOnDate: (date: string) =>
+    api.get('/bookings', { params: { limit: 5, status: 'CONFIRMED' } })
+      .then(r => (r.data.bookings ?? []).find((b: any) => b.slot_date === date) || null)
+      .catch(() => null),
 }
 
 // Queue
@@ -67,11 +72,36 @@ export const paymentApi = {
   initiate: (bookingId: string, method: string) => api.post('/payments/initiate', { booking_id: bookingId, method }),
   getById:  (id: string)          => api.get(`/payments/${id}`),
   getByBooking: (bookingId: string) => api.get(`/payments/booking/${bookingId}`),
-  getHistory: (params?: any)      => api.get('/payments', { params })
+  getHistory: (params?: any)      => api.get('/payments', { params }),
+  simulateConfirm: (paymentId: string) => api.post(`/payments/${paymentId}/simulate-confirm`)
 }
 
 // Monitoring
 export const monitoringApi = {
   getStation: (stationId: string) => api.get(`/monitoring/station/${stationId}`),
-  getCharger: (chargerId: string, params?: any) => api.get(`/monitoring/charger/${chargerId}`, { params })
+  getCharger: (chargerId: string, params?: any) => api.get(`/monitoring/chargers/${chargerId}/latest`, { params }),
+  getChargerInfo: (chargerId: string) => api.get(`/stations/chargers/${chargerId}`),
+}
+
+// Sessions (Charging)
+export const sessionApi = {
+  start:      (bookingId: string, chargerId: string, tariffPerKwh?: number) =>
+    api.post('/sessions/start', { booking_id: bookingId, charger_id: chargerId, energy_kwh_start: 0, tariff_per_kwh: tariffPerKwh ?? 2500 }),
+  stop:       (sessionId: string, energyKwhEnd: number) =>
+    api.put(`/sessions/${sessionId}/stop`, { energy_kwh_end: energyKwhEnd, stop_reason: 'MANUAL' }),
+  getByBooking: (bookingId: string) => api.get(`/sessions/booking/${bookingId}`),
+  getById:    (sessionId: string)  => api.get(`/sessions/${sessionId}`)
+}
+
+// Admin
+export const adminApi = {
+  // Semua booking
+  getAllBookings: (params?: any) => api.get('/bookings', { params: { all: 'true', ...params } }),
+  // Kelola stasiun
+  createStation:  (data: any)    => api.post('/stations', data),
+  updateStation:  (id: string, data: any) => api.put(`/stations/${id}`, data),
+  deleteStation:  (id: string)   => api.delete(`/stations/${id}`),
+  // Update harga slot
+  updateSlotPrice: (chargerId: string, slotId: string, price: number) =>
+    api.patch(`/stations/chargers/${chargerId}/slots/${slotId}/price`, { price_per_kwh: price }),
 }
